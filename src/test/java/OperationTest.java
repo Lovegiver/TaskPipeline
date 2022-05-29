@@ -72,7 +72,7 @@ public class OperationTest {
             tasksToRemoveFromMap.clear();
         }
 
-        System.out.println("ooo");
+        System.out.println("tototo");
 
         tasksRelationships.forEach((key, value) -> {
             Flux<?> flux = key.getWrappedOperation().process(convertCollectionToArray.apply(value));
