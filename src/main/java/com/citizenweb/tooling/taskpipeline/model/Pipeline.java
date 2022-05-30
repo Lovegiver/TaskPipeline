@@ -19,6 +19,8 @@ public class Pipeline {
         this.tasks = tasksToProcess;
     }
 
+    /** Each time a {@link Flux} is produced, we have to inject it as an input of the next {@link Task}.<br>
+     * The Task and its inputs are temporarily stored in a local {@link ConcurrentHashMap}.<br> */
     BiConsumer<Task,Flux<?>> injectFluxIntoNextTask = ((next, flux) -> {
         if (tasksRelationships.get(next) != null) {
             tasksRelationships.get(next).add(flux);
