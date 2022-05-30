@@ -59,8 +59,8 @@ public class Pipeline {
         return allPaths;
     }
 
-    private void processStartingTasks(Collection<Task> tasks) {
-        tasks.forEach(task -> {
+    private void processStartingTasks(Collection<Task> startingTasks) {
+        startingTasks.forEach(task -> {
             Flux<?> flux = task.process(Flux.empty());
             task.getSuccessors().forEach(next -> this.injectFluxIntoNextTask.accept(next, flux));
         });
@@ -70,7 +70,8 @@ public class Pipeline {
         while (!endingTasks.containsAll(this.tasksRelationships.keySet())) {
             Set<Task> tasksToRemoveFromMap = new HashSet<>();
             this.tasksRelationships.keySet()
-                    .stream().filter(Task.isTerminalTask.negate())
+                    .stream()
+                    .filter(Task.isTerminalTask.negate())
                     .forEach(task -> {
                 Flux<?> flux = task.process(this.convertCollectionToArray.apply(this.tasksRelationships.get(task)));
                 task.getSuccessors().forEach(next -> this.injectFluxIntoNextTask.accept(next, flux));
