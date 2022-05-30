@@ -10,7 +10,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 @Data
-public class Task {
+public class Task implements Operation {
 
     private final String taskName;
     private final Operation wrappedOperation;
@@ -31,4 +31,8 @@ public class Task {
         this.predecessors.forEach(p -> p.getSuccessors().add(this));
     }
 
+    @Override
+    public Flux<?> process(Flux<?>... inputs) {
+        return this.wrappedOperation.process(inputs);
+    }
 }

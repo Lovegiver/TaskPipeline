@@ -33,6 +33,13 @@
             <version>5.8.2</version>
             <scope>test</scope>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/io.projectreactor/reactor-test -->
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-test</artifactId>
+            <version>3.4.18</version>
+            <scope>test</scope>
+        </dependency>
 
     </dependencies>
 

@@ -59,9 +59,9 @@ public class Pipeline {
         return allPaths;
     }
 
-    private void processStartingTasks(Collection<Task> tasks) {
-        tasks.forEach(task -> {
-            Flux<?> flux = task.getWrappedOperation().process(Flux.empty());
+    private void processStartingTasks(Collection<Task> startingTasks) {
+        startingTasks.forEach(task -> {
+            Flux<?> flux = task.process(Flux.empty());
             task.getSuccessors().forEach(next -> this.injectFluxIntoNextTask.accept(next, flux));
         });
     }
@@ -69,11 +69,14 @@ public class Pipeline {
     private void processIntermediateTasks(Collection<Task> endingTasks) {
         while (!endingTasks.containsAll(this.tasksRelationships.keySet())) {
             Set<Task> tasksToRemoveFromMap = new HashSet<>();
-            for (Task task : this.tasksRelationships.keySet()) {
-                Flux<?> flux = task.getWrappedOperation().process(this.convertCollectionToArray.apply(this.tasksRelationships.get(task)));
+            this.tasksRelationships.keySet()
+                    .stream()
+                    .filter(Task.isTerminalTask.negate())
+                    .forEach(task -> {
+                Flux<?> flux = task.process(this.convertCollectionToArray.apply(this.tasksRelationships.get(task)));
                 task.getSuccessors().forEach(next -> this.injectFluxIntoNextTask.accept(next, flux));
                 tasksToRemoveFromMap.add(task);
-            }
+            });
             tasksToRemoveFromMap.forEach(this.tasksRelationships::remove);
             tasksToRemoveFromMap.clear();
         }
@@ -81,7 +84,7 @@ public class Pipeline {
 
     private void processFinalTasks() {
         this.tasksRelationships.forEach((key, value) -> {
-            Flux<?> flux = key.getWrappedOperation().process(this.convertCollectionToArray.apply(value));
+            Flux<?> flux = key.process(this.convertCollectionToArray.apply(value));
             flux.log().subscribe(System.out::println);
         });
     }
