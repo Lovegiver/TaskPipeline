@@ -20,7 +20,6 @@ public class Task {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private final Set<Task> successors = new HashSet<>();
-    private Flux<?>[] inputs;
 
     public static Predicate<Task> isTerminalTask = task -> task.getSuccessors().isEmpty();
     public static Predicate<Task> isInitialTask = task -> task.getPredecessors().isEmpty();
