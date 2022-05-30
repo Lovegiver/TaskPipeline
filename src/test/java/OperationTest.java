@@ -4,6 +4,7 @@ import com.citizenweb.tooling.taskpipeline.model.Task;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
+import reactor.test.StepVerifier;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -36,6 +37,7 @@ public class OperationTest {
         return collection.toArray(array);
     };
 
+    @SuppressWarnings("unchecked")
     @Test
     void simpleOperationsTest_noPipeline() {
         Task t1 = new Task("Task 1", operationsMap.get("o1"), Collections.emptySet());
@@ -78,17 +80,21 @@ public class OperationTest {
             tasksToRemoveFromMap.clear();
         }
 
-        System.out.println("tototo");
-
         tasksRelationships.forEach((key, value) -> {
-            Flux<?> flux = key.getWrappedOperation().process(convertCollectionToArray.apply(value));
+            Flux<Integer> flux = (Flux<Integer>) key.getWrappedOperation().process(convertCollectionToArray.apply(value));
             flux.log().subscribe(System.out::println);
+
+            StepVerifier.create(flux)
+                    .expectSubscription()
+                    .expectNext(34, 35, 36)
+                    .expectComplete()
+                    .verify();
         });
 
     }
 
     @Test
-    void simpleOperationsTest_withPipeline() {
+    void simpleOperationsTest_withPipeline() throws InterruptedException {
         Task t1 = new Task("Task 1", operationsMap.get("o1"), Collections.emptySet());
         Task t2 = new Task("Task 2", operationsMap.get("o2"), Collections.emptySet());
         Task t3 = new Task("Task 3", operationsMap.get("o3"), Collections.emptySet());
@@ -98,6 +104,7 @@ public class OperationTest {
         Set<Task> allTasks = Set.of(t1, t2, t3, t4, t5, t6);
         Pipeline pipeline = new Pipeline(allTasks);
         pipeline.execute();
+        Thread.sleep(1000);
     }
 
 }
