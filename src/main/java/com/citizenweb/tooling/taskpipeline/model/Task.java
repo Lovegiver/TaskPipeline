@@ -9,6 +9,15 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Predicate;
 
+/**
+ * A {@link Task} is a wrapper for an {@link Operation} object.<br>
+ * To be useful, an Operation need a Task around it. In fact, a Task could live without Operation, holding all
+ * the logic in itself. But it seems a better idea to have two distinct objects for the sake of ease-of-use.<br>
+ * First the Operation is defined, with only the logic. Then a Task is instantiated with an Operation  as a mandatory
+ * argument in its constructor.<br>
+ * A collection containing previous {@link Task}s is also mandatory, but this collection can be empty if the Task wraps
+ * a 'starting' operation.
+ */
 @Data
 public class Task implements Operation {
 
