@@ -24,7 +24,7 @@ public class OperationTest {
         Operation o4 = inputs -> {
             Flux<?> int1 = inputs[0];
             Flux<?> int2 = inputs[1];
-            return Flux.zip(int1, int2, (x,y) -> (int) x+ (int) y).log();
+            return Flux.zip(int1, int2, (x,y) -> (int) x + (int) y);
         };
         operationsMap.put("o1", o1);
         operationsMap.put("o2", o2);
