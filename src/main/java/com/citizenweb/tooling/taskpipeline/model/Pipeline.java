@@ -41,7 +41,7 @@ public class Pipeline {
     };
 
     /**
-     * Do 4 steps :
+     * Does 4 steps :
      * <ol>
      *     <li>from the given tasks, compute all possible paths, ie all the tasks to process in order to complete a terminal task</li>
      *     <li>process all starting tasks</li>

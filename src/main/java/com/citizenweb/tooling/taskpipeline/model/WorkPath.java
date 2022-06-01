@@ -19,7 +19,7 @@ public class WorkPath {
 
     public WorkPath(Set<Task> taskToProcess) {
         this.tasks = taskToProcess;
-        this.startingTasks = taskToProcess.stream().filter(task -> task.getPredecessors().isEmpty()).collect(Collectors.toSet());
-        this.endingTasks = taskToProcess.stream().filter(task -> task.getSuccessors().isEmpty()).collect(Collectors.toSet());
+        this.startingTasks = taskToProcess.stream().filter(Task.isInitialTask).collect(Collectors.toSet());
+        this.endingTasks = taskToProcess.stream().filter(Task.isTerminalTask).collect(Collectors.toSet());
     }
 }
