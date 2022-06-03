@@ -5,7 +5,6 @@ import reactor.util.annotation.NonNull;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -13,8 +12,6 @@ import java.util.stream.Collectors;
  * A {@link Pipeline} contains all the logic needed to consume {@link Task}s in the most efficient way
  */
 public class Pipeline {
-    /** For a given {@link Task}, associated values are the input fluxes needed to execute the {@link Operation#process(Flux[])}. */
-    private final Map<Task, Collection<Flux<?>>> tasksRelationships = new ConcurrentHashMap<>();
     /** All the {@link Task} to process */
     private final Set<Task> tasks;
 
@@ -100,18 +97,18 @@ public class Pipeline {
      * @param workPath contains all {@link Task}s to be consumed but ending tasks
      */
     private WorkPath processIntermediateTasks(WorkPath workPath) {
-        while (!(workPath.getTasksRelationships().containsKey(workPath.getEndingTask())
-                && workPath.getTasksRelationships().keySet().size()==1)) {
+        var map = workPath.getTasksAndInputFluxesMap();
+        while (! ( map.containsKey(workPath.getEndingTask()) && map.keySet().size() == 1 ) ) {
             Set<Task> tasksToRemoveFromMap = new HashSet<>();
-            workPath.getTasksRelationships().keySet()
+            map.keySet()
                     .stream()
                     .filter(Task.isTerminalTask.negate())
                     .forEach(task -> {
-                Flux<?> flux = task.process(this.convertCollectionToArray.apply(workPath.getTasksRelationships().get(task)));
+                Flux<?> flux = task.process(this.convertCollectionToArray.apply(map.get(task)));
                 task.getSuccessors().forEach(next -> workPath.injectFluxIntoNextTask.accept(next, flux));
                 tasksToRemoveFromMap.add(task);
             });
-            tasksToRemoveFromMap.forEach(workPath.getTasksRelationships()::remove);
+            tasksToRemoveFromMap.forEach(map::remove);
             tasksToRemoveFromMap.clear();
         }
         return workPath;
@@ -121,7 +118,7 @@ public class Pipeline {
      * FinalTasks (or TerminalTasks) are the {@link Task}s we want to compute the resulting {@link Flux}.<br>
      */
     private void processFinalTasks(WorkPath workPath) {
-        workPath.getTasksRelationships().forEach((key, value) -> {
+        workPath.getTasksAndInputFluxesMap().forEach((key, value) -> {
             Flux<?> flux = key.process(this.convertCollectionToArray.apply(value));
             flux.log().subscribe(System.out::println);
         });

@@ -1,7 +1,5 @@
 package com.citizenweb.tooling.taskpipeline.model;
 
-import lombok.Builder;
-import lombok.Data;
 import lombok.Getter;
 import reactor.core.publisher.Flux;
 
@@ -27,7 +25,7 @@ public class WorkPath {
     private final Task endingTask;
     /** For a given {@link Task}, associated values are the input fluxes needed to execute the {@link Operation#process(Flux[])}. */
     @Getter
-    private final Map<Task, Collection<Flux<?>>> tasksRelationships = new ConcurrentHashMap<>();
+    private final Map<Task, Collection<Flux<?>>> tasksAndInputFluxesMap = new ConcurrentHashMap<>();
 
     public WorkPath(Set<Task> taskToProcess) {
         this.tasks = taskToProcess;
@@ -39,12 +37,12 @@ public class WorkPath {
     /** Each time a {@link Flux} is produced, we have to inject it as an input of the next {@link Task}.<br>
      * The Task and its inputs are temporarily stored in a local {@link ConcurrentHashMap}.<br> */
     BiConsumer<Task,Flux<?>> injectFluxIntoNextTask = ((next, flux) -> {
-        if (this.tasksRelationships.get(next) != null) {
-            this.tasksRelationships.get(next).add(flux);
+        if (this.tasksAndInputFluxesMap.get(next) != null) {
+            this.tasksAndInputFluxesMap.get(next).add(flux);
         } else {
             Set<Flux<?>> fluxSet = new HashSet<>();
             fluxSet.add(flux);
-            this.tasksRelationships.put(next, fluxSet);
+            this.tasksAndInputFluxesMap.put(next, fluxSet);
         }
     });
 
