@@ -1,11 +1,10 @@
 package com.citizenweb.tooling.taskpipeline.model;
 
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
+import lombok.*;
 import reactor.core.publisher.Flux;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -19,24 +18,38 @@ import java.util.function.Predicate;
  * a 'starting' operation.
  */
 @Data
+@Builder
 public class Task implements Operation {
 
+    /** Task's name - Mandatory */
+    @NonNull
     private final String taskName;
+    /** The wrapped {@link Operation} - Mandatory */
+    @NonNull
     private final Operation wrappedOperation;
+    /** All {@link Task}s to be executed <b>before</b> the current one (inputs for current Task) */
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
+    @NonNull
     private final Set<Task> predecessors;
+    /** All {@link Task}s to be executed <b>after</b> the current one (current Task is an input for them) */
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
+    @NonNull
     private final Set<Task> successors = new HashSet<>();
 
+    /** This {@link Task} has no <b>successors</b>. */
     public static Predicate<Task> isTerminalTask = task -> task.getSuccessors().isEmpty();
+    /** This {@link Task} has no <b>predecessors</b>. */
     public static Predicate<Task> isInitialTask = task -> task.getPredecessors().isEmpty();
 
     public Task(String taskName, Operation wrappedOperation, Set<Task> predecessors) {
-        this.taskName = taskName;
-        this.wrappedOperation = wrappedOperation;
-        this.predecessors = predecessors;
+        this.taskName = Objects.requireNonNull(taskName,
+                "A Task has to be named");
+        this.wrappedOperation = Objects.requireNonNull(wrappedOperation,
+                "A Task should wrap an Operation, but Operation is missing");
+        this.predecessors = Objects.requireNonNull(predecessors,
+                "Null is not an acceptable value. Consider using an empty collection.");
         this.predecessors.forEach(p -> p.getSuccessors().add(this));
     }
 

@@ -4,8 +4,8 @@ import reactor.core.publisher.Flux;
 import reactor.util.annotation.NonNull;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -22,18 +22,6 @@ public class Pipeline {
         this.tasks = tasksToProcess;
     }
 
-    /** Each time a {@link Flux} is produced, we have to inject it as an input of the next {@link Task}.<br>
-     * The Task and its inputs are temporarily stored in a local {@link ConcurrentHashMap}.<br> */
-    BiConsumer<Task,Flux<?>> injectFluxIntoNextTask = ((next, flux) -> {
-        if (this.tasksRelationships.get(next) != null) {
-            this.tasksRelationships.get(next).add(flux);
-        } else {
-            Set<Flux<?>> fluxSet = new HashSet<>();
-            fluxSet.add(flux);
-            this.tasksRelationships.put(next, fluxSet);
-        }
-    });
-
     /** Converts a Collection into an Array */
     Function<Collection<Flux<?>>,Flux<?>[]> convertCollectionToArray = collection -> {
         Flux<?>[] array = new Flux[collection.size()];
@@ -41,7 +29,7 @@ public class Pipeline {
     };
 
     /**
-     * Do 4 steps :
+     * Does 4 steps :
      * <ol>
      *     <li>from the given tasks, compute all possible paths, ie all the tasks to process in order to complete a terminal task</li>
      *     <li>process all starting tasks</li>
@@ -52,11 +40,11 @@ public class Pipeline {
     public void execute() {
         Collection<Set<Task>> allPaths = computePaths(this.tasks);
         allPaths.parallelStream().forEach(path -> {
-            Set<Task> endingTasks = path.stream().filter(Task.isTerminalTask).collect(Collectors.toSet());
-            Set<Task> startingTasks = path.stream().filter(Task.isInitialTask).collect(Collectors.toSet());
-            this.processStartingTasks(startingTasks);
-            this.processIntermediateTasks(endingTasks);
-            this.processFinalTasks();
+            WorkPath workPath = convertToWorkPath(path);
+            CompletableFuture.supplyAsync( () -> this.processStartingTasks(workPath))
+                    .thenApply(this::processIntermediateTasks)
+                    .thenAccept(this::processFinalTasks)
+                    .join();
         });
     }
 
@@ -80,44 +68,60 @@ public class Pipeline {
     }
 
     /**
+     * Converts a Set of Tasks into a {@link WorkPath} object
+     * @param path the path to be converted
+     * @return a {@link WorkPath} wrapping a Set of tasks
+     */
+    @NonNull
+    private WorkPath convertToWorkPath(Set<Task> path) {
+        return new WorkPath(path);
+    }
+
+    /**
      * StartingTasks are all {@link Task}s without any predecessors (or previous Task).<br>
      * These {@link Task}s are specific because they do not need any input {@link Flux}.<br>
      * They all will be consumed by the following {@link Task}s.<br>
-     * @param startingTasks all the {@link Task}s without any predecessors
+     *
+     * @param workPath contains all the {@link Task}s without any predecessors
+     * @return a {@link WorkPath}
      */
-    private void processStartingTasks(Collection<Task> startingTasks) {
-        startingTasks.forEach(task -> {
+    private WorkPath processStartingTasks(WorkPath workPath) {
+        workPath.getStartingTasks().forEach(task -> {
             Flux<?> flux = task.process(Flux.empty());
-            task.getSuccessors().forEach(next -> this.injectFluxIntoNextTask.accept(next, flux));
+            task.getSuccessors().forEach(next -> workPath.injectFluxIntoNextTask.accept(next, flux));
         });
+        return workPath;
     }
 
     /**
      * IntermediateTasks have predecessors and successors.<br>
      * They all will be consumed, layer after layer, until we reach the terminal {@link Task}s.<br>
-     * @param endingTasks we will consume all {@link Task}s but these
+     *
+     * @param workPath contains all {@link Task}s to be consumed but ending tasks
      */
-    private void processIntermediateTasks(Collection<Task> endingTasks) {
-        while (!endingTasks.containsAll(this.tasksRelationships.keySet())) {
+    private WorkPath processIntermediateTasks(WorkPath workPath) {
+        while (!(workPath.getTasksRelationships().containsKey(workPath.getEndingTask())
+                && workPath.getTasksRelationships().keySet().size()==1)) {
             Set<Task> tasksToRemoveFromMap = new HashSet<>();
-            this.tasksRelationships.keySet()
+            workPath.getTasksRelationships().keySet()
                     .stream()
                     .filter(Task.isTerminalTask.negate())
                     .forEach(task -> {
-                Flux<?> flux = task.process(this.convertCollectionToArray.apply(this.tasksRelationships.get(task)));
-                task.getSuccessors().forEach(next -> this.injectFluxIntoNextTask.accept(next, flux));
+                Flux<?> flux = task.process(this.convertCollectionToArray.apply(workPath.getTasksRelationships().get(task)));
+                task.getSuccessors().forEach(next -> workPath.injectFluxIntoNextTask.accept(next, flux));
                 tasksToRemoveFromMap.add(task);
             });
-            tasksToRemoveFromMap.forEach(this.tasksRelationships::remove);
+            tasksToRemoveFromMap.forEach(workPath.getTasksRelationships()::remove);
             tasksToRemoveFromMap.clear();
         }
+        return workPath;
     }
 
     /**
      * FinalTasks (or TerminalTasks) are the {@link Task}s we want to compute the resulting {@link Flux}.<br>
      */
-    private void processFinalTasks() {
-        this.tasksRelationships.forEach((key, value) -> {
+    private void processFinalTasks(WorkPath workPath) {
+        workPath.getTasksRelationships().forEach((key, value) -> {
             Flux<?> flux = key.process(this.convertCollectionToArray.apply(value));
             flux.log().subscribe(System.out::println);
         });
