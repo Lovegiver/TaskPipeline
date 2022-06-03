@@ -14,17 +14,17 @@ import java.util.stream.Collectors;
 
 public class OperationTest {
 
-    private static final Map<String,Operation> operationsMap = new HashMap<>();
+    private static final Map<String, Operation> operationsMap = new HashMap<>();
 
     @BeforeAll
     static void initData() {
-        Operation o1 = inputs -> Flux.just(5,6,7);
-        Operation o2 = inputs -> Flux.just(7,7,7);
-        Operation o3 = inputs -> Flux.just(15,15,15);
+        Operation o1 = inputs -> Flux.just(5, 6, 7);
+        Operation o2 = inputs -> Flux.just(7, 7, 7);
+        Operation o3 = inputs -> Flux.just(15, 15, 15);
         Operation o4 = inputs -> {
             Flux<?> int1 = inputs[0];
             Flux<?> int2 = inputs[1];
-            return Flux.zip(int1, int2, (x,y) -> (int) x + (int) y);
+            return Flux.zip(int1, int2, (x, y) -> (int) x + (int) y);
         };
         operationsMap.put("o1", o1);
         operationsMap.put("o2", o2);
@@ -32,7 +32,7 @@ public class OperationTest {
         operationsMap.put("o4", o4);
     }
 
-    Function<Collection<Flux<?>>,Flux<?>[]> convertCollectionToArray = collection -> {
+    Function<Collection<Flux<?>>, Flux<?>[]> convertCollectionToArray = collection -> {
         Flux<?>[] array = new Flux[collection.size()];
         return collection.toArray(array);
     };
@@ -52,9 +52,9 @@ public class OperationTest {
         Set<Task> endingTasks = completePath.stream().filter(Task.isTerminalTask).collect(Collectors.toSet());
         Set<Task> startingTasks = completePath.stream().filter(Task.isInitialTask).collect(Collectors.toSet());
 
-        Map<Task,Collection<Flux<?>>> tasksRelationships = new ConcurrentHashMap<>();
+        Map<Task, Collection<Flux<?>>> tasksRelationships = new ConcurrentHashMap<>();
 
-        BiConsumer<Task,Flux<?>> injectFluxIntoNextTask = ((next, flux) -> {
+        BiConsumer<Task, Flux<?>> injectFluxIntoNextTask = ((next, flux) -> {
             if (tasksRelationships.get(next) != null) {
                 tasksRelationships.get(next).add(flux);
             } else {

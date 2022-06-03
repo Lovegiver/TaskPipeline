@@ -15,17 +15,21 @@ import java.util.stream.Collectors;
  */
 @Log
 public class Pipeline {
-    /** All the {@link Task} to process */
+    /**
+     * All the {@link Task} to process
+     */
     private final Set<Task> tasks;
 
-    private final ConcurrentHashMap<String,CompletableFuture<?>> runningWorkPaths = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, CompletableFuture<?>> runningWorkPaths = new ConcurrentHashMap<>();
 
     public Pipeline(Set<Task> tasksToProcess) {
         this.tasks = tasksToProcess;
     }
 
-    /** Converts a Collection into an Array */
-    Function<Collection<Flux<?>>,Flux<?>[]> convertCollectionToArray = collection -> {
+    /**
+     * Converts a Collection into an Array
+     */
+    Function<Collection<Flux<?>>, Flux<?>[]> convertCollectionToArray = collection -> {
         Flux<?>[] array = new Flux[collection.size()];
         return collection.toArray(array);
     };
@@ -39,22 +43,22 @@ public class Pipeline {
      *     <li>process all terminal tasks</li>
      * </ol>
      */
-    public Map<String,CompletableFuture<?>> execute() {
+    public Map<String, CompletableFuture<?>> execute() {
         Collection<Set<Task>> allPaths = computePaths(this.tasks);
         allPaths.parallelStream().forEach(path -> {
             String name = path.stream().filter(Task.isTerminalTask).map(Task::getTaskName).findAny().orElseThrow();
-            var x = CompletableFuture.supplyAsync( () -> convertToWorkPath(path) )
+            var x = CompletableFuture.supplyAsync(() -> convertToWorkPath(path))
                     .thenApply(this::processStartingTasks)
                     .thenApply(this::processIntermediateTasks)
                     .thenApply(this::processFinalTasks)
-                    .whenComplete( (result, ex) -> {
-                        if (ex !=  null) {
+                    .whenComplete((result, ex) -> {
+                        if (ex != null) {
                             log.severe("Error occurred : " + ex.getCause());
                         } else {
                             log.info("Finished processing task : " + name);
                         }
                     });
-            runningWorkPaths.put(name,x);
+            runningWorkPaths.put(name, x);
         });
         return this.runningWorkPaths;
     }
@@ -63,6 +67,7 @@ public class Pipeline {
      * What is a <b>path</b> ?<br>
      * A <b>path</b> is a collection of {@link Task}s, all of them are linked to each other by a previous/next relationship.<br>
      * Starting from a collection of tasks, we want to find out all the different paths.<br>
+     *
      * @param tasks the whole collection of tasks
      * @return a Collection of Sets of {@link Task}s with each Set a specific path
      */
@@ -80,6 +85,7 @@ public class Pipeline {
 
     /**
      * Converts a Set of Tasks into a {@link WorkPath} object
+     *
      * @param path the path to be converted
      * @return a {@link WorkPath} wrapping a Set of tasks
      */
@@ -112,16 +118,16 @@ public class Pipeline {
      */
     private WorkPath processIntermediateTasks(WorkPath workPath) {
         var map = workPath.getTasksAndInputFluxesMap();
-        while (! ( map.containsKey(workPath.getEndingTask()) && map.keySet().size() == 1 ) ) {
+        while (!(map.containsKey(workPath.getEndingTask()) && map.keySet().size() == 1)) {
             Set<Task> tasksToRemoveFromMap = new HashSet<>();
             map.keySet()
                     .stream()
                     .filter(Task.isTerminalTask.negate())
                     .forEach(task -> {
-                Flux<?> flux = task.process(this.convertCollectionToArray.apply(map.get(task)));
-                task.getSuccessors().forEach(next -> workPath.injectFluxIntoNextTask.accept(next, flux));
-                tasksToRemoveFromMap.add(task);
-            });
+                        Flux<?> flux = task.process(this.convertCollectionToArray.apply(map.get(task)));
+                        task.getSuccessors().forEach(next -> workPath.injectFluxIntoNextTask.accept(next, flux));
+                        tasksToRemoveFromMap.add(task);
+                    });
             tasksToRemoveFromMap.forEach(map::remove);
             tasksToRemoveFromMap.clear();
         }
@@ -141,6 +147,7 @@ public class Pipeline {
 
     /**
      * Recursive function used to compute the whole path associated to a terminal {@link Task}.<br>
+     *
      * @param path the path to build
      * @param task the reference {@link Task}
      */

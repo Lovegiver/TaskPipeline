@@ -25,6 +25,7 @@ import reactor.core.publisher.Flux;
 public interface Operation {
     /**
      * Processes the input {@link Flux} with any logic you deserve and then return a Flux.<br>
+     *
      * @param inputs the Flux coming from preceding Operations
      * @return a Flux to be used by next Operation-s or to be subscribed to in order to finally get the result
      */

@@ -23,7 +23,9 @@ public class WorkPath {
     private final Set<Task> startingTasks;
     @Getter
     private final Task endingTask;
-    /** For a given {@link Task}, associated values are the input fluxes needed to execute the {@link Operation#process(Flux[])}. */
+    /**
+     * For a given {@link Task}, associated values are the input fluxes needed to execute the {@link Operation#process(Flux[])}.
+     */
     @Getter
     private final Map<Task, Collection<Flux<?>>> tasksAndInputFluxesMap = new ConcurrentHashMap<>();
 
@@ -34,9 +36,11 @@ public class WorkPath {
         this.name = taskToProcess.stream().filter(Task.isTerminalTask).map(Task::getTaskName).findAny().orElseThrow();
     }
 
-    /** Each time a {@link Flux} is produced, we have to inject it as an input of the next {@link Task}.<br>
-     * The Task and its inputs are temporarily stored in a local {@link ConcurrentHashMap}.<br> */
-    BiConsumer<Task,Flux<?>> injectFluxIntoNextTask = ((next, flux) -> {
+    /**
+     * Each time a {@link Flux} is produced, we have to inject it as an input of the next {@link Task}.<br>
+     * The Task and its inputs are temporarily stored in a local {@link ConcurrentHashMap}.<br>
+     */
+    BiConsumer<Task, Flux<?>> injectFluxIntoNextTask = ((next, flux) -> {
         if (this.tasksAndInputFluxesMap.get(next) != null) {
             this.tasksAndInputFluxesMap.get(next).add(flux);
         } else {

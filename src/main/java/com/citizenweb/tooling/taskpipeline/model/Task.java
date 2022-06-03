@@ -21,26 +21,38 @@ import java.util.function.Predicate;
 @Builder
 public class Task implements Operation {
 
-    /** Task's name - Mandatory */
+    /**
+     * Task's name - Mandatory
+     */
     @NonNull
     private final String taskName;
-    /** The wrapped {@link Operation} - Mandatory */
+    /**
+     * The wrapped {@link Operation} - Mandatory
+     */
     @NonNull
     private final Operation wrappedOperation;
-    /** All {@link Task}s to be executed <b>before</b> the current one (inputs for current Task) */
+    /**
+     * All {@link Task}s to be executed <b>before</b> the current one (inputs for current Task)
+     */
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     @NonNull
     private final Set<Task> predecessors;
-    /** All {@link Task}s to be executed <b>after</b> the current one (current Task is an input for them) */
+    /**
+     * All {@link Task}s to be executed <b>after</b> the current one (current Task is an input for them)
+     */
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     @NonNull
     private final Set<Task> successors = new HashSet<>();
 
-    /** This {@link Task} has no <b>successors</b>. */
+    /**
+     * This {@link Task} has no <b>successors</b>.
+     */
     public static Predicate<Task> isTerminalTask = task -> task.getSuccessors().isEmpty();
-    /** This {@link Task} has no <b>predecessors</b>. */
+    /**
+     * This {@link Task} has no <b>predecessors</b>.
+     */
     public static Predicate<Task> isInitialTask = task -> task.getPredecessors().isEmpty();
 
     public Task(String taskName, Operation wrappedOperation, Set<Task> predecessors) {
