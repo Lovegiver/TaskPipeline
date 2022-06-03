@@ -94,7 +94,7 @@ public class OperationTest {
     }
 
     @Test
-    void simpleOperationsTest_withPipeline() throws InterruptedException {
+    void simpleOperationsTest_withPipeline() {
         Task t1 = new Task("Task 1", operationsMap.get("o1"), Collections.emptySet());
         Task t2 = new Task("Task 2", operationsMap.get("o2"), Collections.emptySet());
         Task t3 = new Task("Task 3", operationsMap.get("o3"), Collections.emptySet());
@@ -103,8 +103,8 @@ public class OperationTest {
         Task t6 = new Task("Task 6", operationsMap.get("o4"), Set.of(t4, t5));
         Set<Task> allTasks = Set.of(t1, t2, t3, t4, t5, t6);
         Pipeline pipeline = new Pipeline(allTasks);
-        pipeline.execute();
-        Thread.sleep(1000);
+        var resultMap = pipeline.execute();
+        resultMap.forEach((key, value) -> value.join());
     }
 
 }

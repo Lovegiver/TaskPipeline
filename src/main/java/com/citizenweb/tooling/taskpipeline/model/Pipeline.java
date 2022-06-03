@@ -1,19 +1,24 @@
 package com.citizenweb.tooling.taskpipeline.model;
 
+import lombok.extern.java.Log;
 import reactor.core.publisher.Flux;
 import reactor.util.annotation.NonNull;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
  * A {@link Pipeline} contains all the logic needed to consume {@link Task}s in the most efficient way
  */
+@Log
 public class Pipeline {
     /** All the {@link Task} to process */
     private final Set<Task> tasks;
+
+    private final ConcurrentHashMap<String,CompletableFuture<?>> runningWorkPaths = new ConcurrentHashMap<>();
 
     public Pipeline(Set<Task> tasksToProcess) {
         this.tasks = tasksToProcess;
@@ -34,15 +39,24 @@ public class Pipeline {
      *     <li>process all terminal tasks</li>
      * </ol>
      */
-    public void execute() {
+    public Map<String,CompletableFuture<?>> execute() {
         Collection<Set<Task>> allPaths = computePaths(this.tasks);
         allPaths.parallelStream().forEach(path -> {
-            WorkPath workPath = convertToWorkPath(path);
-            CompletableFuture.supplyAsync( () -> this.processStartingTasks(workPath))
+            String name = path.stream().filter(Task.isTerminalTask).map(Task::getTaskName).findAny().orElseThrow();
+            var x = CompletableFuture.supplyAsync( () -> convertToWorkPath(path) )
+                    .thenApply(this::processStartingTasks)
                     .thenApply(this::processIntermediateTasks)
-                    .thenAccept(this::processFinalTasks)
-                    .join();
+                    .thenApply(this::processFinalTasks)
+                    .whenComplete( (result, ex) -> {
+                        if (ex !=  null) {
+                            log.severe("Error occurred : " + ex.getCause());
+                        } else {
+                            log.info("Finished processing task : " + name);
+                        }
+                    });
+            runningWorkPaths.put(name,x);
         });
+        return this.runningWorkPaths;
     }
 
     /**
@@ -117,11 +131,12 @@ public class Pipeline {
     /**
      * FinalTasks (or TerminalTasks) are the {@link Task}s we want to compute the resulting {@link Flux}.<br>
      */
-    private void processFinalTasks(WorkPath workPath) {
+    private WorkPath processFinalTasks(WorkPath workPath) {
         workPath.getTasksAndInputFluxesMap().forEach((key, value) -> {
             Flux<?> flux = key.process(this.convertCollectionToArray.apply(value));
             flux.log().subscribe(System.out::println);
         });
+        return workPath;
     }
 
     /**
