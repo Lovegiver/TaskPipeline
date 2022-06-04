@@ -1,5 +1,7 @@
 package com.citizenweb.tooling.taskpipeline.model;
 
+import com.citizenweb.tooling.taskpipeline.exceptions.TaskExecutionException;
+import com.citizenweb.tooling.taskpipeline.utils.ProcessingType;
 import lombok.*;
 import reactor.core.publisher.Flux;
 
@@ -18,9 +20,11 @@ import java.util.function.Predicate;
  * a 'starting' operation.
  */
 @Data
-@Builder
 public class Task implements Operation {
 
+    /** Monitors life cycle */
+    @NonNull
+    private final Monitor monitor;
     /**
      * Task's name - Mandatory
      */
@@ -63,10 +67,24 @@ public class Task implements Operation {
         this.predecessors = Objects.requireNonNull(predecessors,
                 "Null is not an acceptable value. Consider using an empty collection.");
         this.predecessors.forEach(p -> p.getSuccessors().add(this));
+        this.monitor = new Monitor(ProcessingType.TASK);
     }
 
+    /**
+     * Executes the wrapped {@link Operation}.<br>
+     * @param inputs the Flux coming from preceding Operations
+     * @return a output {@link Flux}
+     */
     @Override
     public Flux<?> process(Flux<?>... inputs) {
-        return this.wrappedOperation.process(inputs);
+        try {
+            this.monitor.statusToRunning();
+            Flux<?> outputFlux = this.wrappedOperation.process(inputs);
+            this.monitor.statusToDone();
+            return outputFlux;
+        } catch (Exception ex) {
+            this.monitor.statusToError();
+            throw new TaskExecutionException(ex.getCause().toString());
+        }
     }
 }

@@ -1,6 +1,7 @@
 package com.citizenweb.tooling.taskpipeline.model;
 
 import lombok.extern.java.Log;
+import lombok.extern.log4j.Log4j2;
 import reactor.core.publisher.Flux;
 import reactor.util.annotation.NonNull;
 
@@ -13,7 +14,7 @@ import java.util.stream.Collectors;
 /**
  * A {@link Pipeline} contains all the logic needed to consume {@link Task}s in the most efficient way
  */
-@Log
+@Log4j2
 public class Pipeline {
     /**
      * All the {@link Task} to process
@@ -30,6 +31,7 @@ public class Pipeline {
      * Converts a Collection into an Array
      */
     Function<Collection<Flux<?>>, Flux<?>[]> convertCollectionToArray = collection -> {
+        Objects.requireNonNull(collection, "Collection is NULL thus can't be converted into Array");
         Flux<?>[] array = new Flux[collection.size()];
         return collection.toArray(array);
     };
@@ -45,7 +47,7 @@ public class Pipeline {
      */
     public Map<String, CompletableFuture<?>> execute() {
         Collection<Set<Task>> allPaths = computePaths(this.tasks);
-        allPaths.parallelStream().forEach(path -> {
+        allPaths.forEach(path -> {
             String name = path.stream().filter(Task.isTerminalTask).map(Task::getTaskName).findAny().orElseThrow();
             var x = CompletableFuture.supplyAsync(() -> convertToWorkPath(path))
                     .thenApply(this::processStartingTasks)
@@ -53,7 +55,7 @@ public class Pipeline {
                     .thenApply(this::processFinalTasks)
                     .whenComplete((result, ex) -> {
                         if (ex != null) {
-                            log.severe("Error occurred : " + ex.getCause());
+                            log.error("Error occurred : " + ex.getCause());
                         } else {
                             log.info("Finished processing task : " + name);
                         }
@@ -117,19 +119,20 @@ public class Pipeline {
      * @param workPath contains all {@link Task}s to be consumed but ending tasks
      */
     private WorkPath processIntermediateTasks(WorkPath workPath) {
-        var map = workPath.getTasksAndInputFluxesMap();
-        while (!(map.containsKey(workPath.getEndingTask()) && map.keySet().size() == 1)) {
+        Map<Task,Collection<Flux<?>>> map = workPath.getTasksAndInputFluxesMap();
+        while (!(workPath.getTasksAndInputFluxesMap().containsKey(workPath.getEndingTask())
+                && workPath.getTasksAndInputFluxesMap().keySet().size() == 1)) {
             Set<Task> tasksToRemoveFromMap = new HashSet<>();
-            map.keySet()
+            workPath.getTasksAndInputFluxesMap().keySet()
                     .stream()
                     .filter(Task.isTerminalTask.negate())
                     .forEach(task -> {
-                        Flux<?> flux = task.process(this.convertCollectionToArray.apply(map.get(task)));
+                        log.warn("Processing task {}", task.getTaskName());
+                        Flux<?> flux = task.process(this.convertCollectionToArray.apply(workPath.getTasksAndInputFluxesMap().get(task)));
                         task.getSuccessors().forEach(next -> workPath.injectFluxIntoNextTask.accept(next, flux));
                         tasksToRemoveFromMap.add(task);
                     });
-            tasksToRemoveFromMap.forEach(map::remove);
-            tasksToRemoveFromMap.clear();
+            workPath.cleanMap.accept(tasksToRemoveFromMap);
         }
         return workPath;
     }
@@ -138,9 +141,9 @@ public class Pipeline {
      * FinalTasks (or TerminalTasks) are the {@link Task}s we want to compute the resulting {@link Flux}.<br>
      */
     private WorkPath processFinalTasks(WorkPath workPath) {
-        workPath.getTasksAndInputFluxesMap().forEach((key, value) -> {
-            Flux<?> flux = key.process(this.convertCollectionToArray.apply(value));
-            flux.log().subscribe(System.out::println);
+        workPath.getTasksAndInputFluxesMap().forEach((task, inputFluxes) -> {
+            Flux<?> flux = task.process(this.convertCollectionToArray.apply(inputFluxes));
+            flux.log().subscribe(log::info);
         });
         return workPath;
     }

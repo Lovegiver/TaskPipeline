@@ -1,6 +1,7 @@
 package com.citizenweb.tooling.taskpipeline.model;
 
 import lombok.Getter;
+import lombok.extern.log4j.Log4j2;
 import reactor.core.publisher.Flux;
 
 import java.util.Collection;
@@ -9,11 +10,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
  * A work path is a set of tasks that all are involved in the realization of an ending task.
  */
+@Log4j2
 public class WorkPath {
     @Getter
     private final String name;
@@ -49,5 +52,18 @@ public class WorkPath {
             this.tasksAndInputFluxesMap.put(next, fluxSet);
         }
     });
+
+    Consumer<Collection<Task>> cleanMap = tasksToRemoveFromMap -> {
+        log.info("Starting -> Map size = {}", this.tasksAndInputFluxesMap.size());
+        tasksToRemoveFromMap.forEach(task -> {
+            Map.Entry<Task,Collection<Flux<?>>> entry = this.getTasksAndInputFluxesMap().entrySet()
+                    .stream()
+                    .filter(taskCollectionEntry -> task.equals(taskCollectionEntry.getKey()))
+                    .findFirst()
+                    .orElseThrow();
+            this.getTasksAndInputFluxesMap().entrySet().remove(entry);
+        });
+        log.info("Ending -> Map size = {}", this.tasksAndInputFluxesMap.size());
+    };
 
 }
