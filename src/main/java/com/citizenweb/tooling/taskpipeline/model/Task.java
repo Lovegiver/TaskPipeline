@@ -5,9 +5,8 @@ import com.citizenweb.tooling.taskpipeline.utils.ProcessingType;
 import lombok.*;
 import reactor.core.publisher.Flux;
 
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 
 /**
@@ -34,6 +33,7 @@ public class Task implements Operation {
      * The wrapped {@link Operation} - Mandatory
      */
     @NonNull
+    @EqualsAndHashCode.Exclude
     private final Operation wrappedOperation;
     /**
      * All {@link Task}s to be executed <b>before</b> the current one (inputs for current Task)
@@ -41,14 +41,19 @@ public class Task implements Operation {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     @NonNull
-    private final Set<Task> predecessors;
+    private final LinkedHashSet<Task> predecessors;
     /**
      * All {@link Task}s to be executed <b>after</b> the current one (current Task is an input for them)
      */
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     @NonNull
-    private final Set<Task> successors = new HashSet<>();
+    private final LinkedHashSet<Task> successors = new LinkedHashSet<>();
+    /** Each time a 'predecessor' produces a {@link Flux}, it has to be injected in the right order for further execution */
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @NonNull
+    private final Map<Task,Optional<Flux<?>>> inputFluxesMap = Collections.synchronizedMap(new LinkedHashMap<>());
 
     /**
      * This {@link Task} has no <b>successors</b>.
@@ -58,15 +63,29 @@ public class Task implements Operation {
      * This {@link Task} has no <b>predecessors</b>.
      */
     public static Predicate<Task> isInitialTask = task -> task.getPredecessors().isEmpty();
+    /** All the necessary input fluxes are ready to use */
+    public static Predicate<Task> hasAllItsNecessaryInputFluxes = task -> task.getInputFluxesMap().values().stream()
+            .allMatch(Optional::isPresent);
 
-    public Task(String taskName, Operation wrappedOperation, Set<Task> predecessors) {
+    /**
+     * Important note : the previous {@link Task}s are expressed within a {@link List} because <b>order</b>
+     * is important.<br>
+     * The order of the previous {@link Task}s <b>must</b> be the same as the {@link Operation}"s input {@link Flux}es.<br>
+     * @param taskName the name of the current {@link Task} for {@link Monitor}ing and logging
+     * @param wrappedOperation the {@link Operation} wrapped by this {@link Task}
+     * @param predecessors {@link Task}s to be executed before the current one
+     */
+    public Task(String taskName, Operation wrappedOperation, List<Task> predecessors) {
         this.taskName = Objects.requireNonNull(taskName,
                 "A Task has to be named");
         this.wrappedOperation = Objects.requireNonNull(wrappedOperation,
                 "A Task should wrap an Operation, but Operation is missing");
-        this.predecessors = Objects.requireNonNull(predecessors,
-                "Null is not an acceptable value. Consider using an empty collection.");
-        this.predecessors.forEach(p -> p.getSuccessors().add(this));
+        this.predecessors = new LinkedHashSet<>(Objects.requireNonNull(predecessors,
+                "Null is not an acceptable value. Consider using an empty collection."));
+        this.predecessors.forEach(p -> {
+            p.getSuccessors().add(this);
+            this.inputFluxesMap.put(p, Optional.empty());
+        });
         this.monitor = new Monitor(ProcessingType.TASK);
     }
 
@@ -84,7 +103,30 @@ public class Task implements Operation {
             return outputFlux;
         } catch (Exception ex) {
             this.monitor.statusToError();
-            throw new TaskExecutionException(ex.getCause().toString());
+            String taskSignature = String.format("%s / %s", this.taskName, this.monitor.getId());
+            throw new TaskExecutionException(getErrorMessage(ex, taskSignature));
         }
+    }
+
+    /**
+     * Once a 'predecessor' has produced its output {@link Flux}, we can replace the default {@link Optional#empty()}
+     * in the {@link Task#inputFluxesMap} of the consuming {@link Task}.<br>
+     */
+    public BiConsumer<Task,Flux<?>> injectFluxFromTask = ((task, flux) ->
+            this.inputFluxesMap.replace(task, Optional.empty(), Optional.of(flux)));
+
+    /**
+     * Retrieve the root cause of an exception :
+     * <ol>
+     *     <li>primarily with the {@link Throwable#getCause()}</li>
+     *     <li>else with the {@link Throwable#getMessage()}</li>
+     * </ol>
+     * @param throwable the thrown exception we want to get message from
+     * @param taskName the involved task to enrich the returned message
+     * @return a String composed by the exception root cause and the {@link Task}'s name
+     */
+    private String getErrorMessage(Throwable throwable, String taskName) {
+        String errMsg = throwable.getCause() != null ? throwable.getCause().toString() : throwable.getMessage();
+        return String.format("Exception while processing task [ %s ] -> %s", taskName, errMsg);
     }
 }

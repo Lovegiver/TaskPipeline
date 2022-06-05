@@ -42,12 +42,12 @@ public class OperationTest {
     @SuppressWarnings("unchecked")
     @Test
     void simpleOperationsTest_noPipeline() {
-        Task t1 = new Task("Task 1", operationsMap.get("o1"), Collections.emptySet());
-        Task t2 = new Task("Task 2", operationsMap.get("o2"), Collections.emptySet());
-        Task t3 = new Task("Task 3", operationsMap.get("o3"), Collections.emptySet());
-        Task t4 = new Task("Task 4", operationsMap.get("o4"), Set.of(t1, t2));
-        Task t5 = new Task("Task 5", operationsMap.get("o4"), Set.of(t2, t3));
-        Task t6 = new Task("Task 6", operationsMap.get("o4"), Set.of(t4, t5));
+        Task t1 = new Task("Task 1", operationsMap.get("o1"), Collections.emptyList());
+        Task t2 = new Task("Task 2", operationsMap.get("o2"), Collections.emptyList());
+        Task t3 = new Task("Task 3", operationsMap.get("o3"), Collections.emptyList());
+        Task t4 = new Task("Task 4", operationsMap.get("o4"), List.of(t1, t2));
+        Task t5 = new Task("Task 5", operationsMap.get("o4"), List.of(t2, t3));
+        Task t6 = new Task("Task 6", operationsMap.get("o4"), List.of(t4, t5));
 
         Set<Task> completePath = Set.of(t1, t2, t3, t4, t5, t6);
 
@@ -97,12 +97,12 @@ public class OperationTest {
 
     @Test
     void simpleOperationsTest_withPipeline() {
-        Task t1 = new Task("Task 1", operationsMap.get("o1"), Collections.emptySet());
-        Task t2 = new Task("Task 2", operationsMap.get("o2"), Collections.emptySet());
-        Task t3 = new Task("Task 3", operationsMap.get("o3"), Collections.emptySet());
-        Task t4 = new Task("Task 4", operationsMap.get("o4"), Set.of(t1, t2));
-        Task t5 = new Task("Task 5", operationsMap.get("o4"), Set.of(t2, t3));
-        Task t6 = new Task("Task 6", operationsMap.get("o4"), Set.of(t4, t5));
+        Task t1 = new Task("Task 1", operationsMap.get("o1"), Collections.emptyList());
+        Task t2 = new Task("Task 2", operationsMap.get("o2"), Collections.emptyList());
+        Task t3 = new Task("Task 3", operationsMap.get("o3"), Collections.emptyList());
+        Task t4 = new Task("Task 4", operationsMap.get("o4"), List.of(t1, t2));
+        Task t5 = new Task("Task 5", operationsMap.get("o4"), List.of(t2, t3));
+        Task t6 = new Task("Task 6", operationsMap.get("o4"), List.of(t4, t5));
         Set<Task> allTasks = Set.of(t1, t2, t3, t4, t5, t6);
         Pipeline pipeline = new Pipeline(allTasks);
         var resultMap = pipeline.execute();

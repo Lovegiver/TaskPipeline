@@ -30,6 +30,13 @@ public class Pipeline {
         return collection.toArray(array);
     };
 
+    Function<Collection<Optional<Flux<?>>>, Collection<Flux<?>>> removeOptional = optionals -> {
+        Objects.requireNonNull(optionals, "Collection is NULL thus Optional can't be removed");
+        Collection<Flux<?>> fluxes = new ArrayList<>(optionals.size());
+        optionals.forEach(optional -> fluxes.add(optional.orElseThrow()));
+        return fluxes;
+    };
+
     public Pipeline(Set<Task> tasksToProcess) {
         this.tasks = tasksToProcess;
     }
@@ -104,9 +111,12 @@ public class Pipeline {
      */
     private WorkPath processStartingTasks(WorkPath workPath) {
         log.info("Processing {} 'starting' tasks", workPath.getStartingTasks().size());
-        workPath.getStartingTasks().forEach(task -> {
-            Flux<?> flux = task.process(Flux.empty());
-            task.getSuccessors().forEach(next -> workPath.injectFluxIntoNextTask.accept(next, flux));
+        workPath.getStartingTasks().forEach(currentTask -> {
+            Flux<?> flux = currentTask.process(Flux.empty());
+            currentTask.getSuccessors()
+                    .stream()
+                    .filter(workPath::taskBelongsToWorkPath)
+                    .forEach(nextTask -> workPath.injectFlux(currentTask, nextTask, flux));
         });
         log.info("Done");
         return workPath;
@@ -119,20 +129,21 @@ public class Pipeline {
      * @param workPath contains all {@link Task}s to be consumed but ending tasks
      */
     private WorkPath processIntermediateTasks(WorkPath workPath) {
-        log.info("Processing {} 'intermediate' tasks", workPath.getTasksAndInputFluxesMap().size());
+        log.info("Processing {} 'intermediate' tasks", workPath.getTasksToProcess().size());
         /* For the sake of readability */
-        var map = workPath.getTasksAndInputFluxesMap();
+        var tasksToProcess = workPath.getTasksToProcess();
         Set<Task> tasksToRemoveFromMap = new HashSet<>();
         while (!workPath.onlyEndingTaskRemains()) {
-            map.keySet()
-                    .stream()
+            tasksToProcess.stream()
                     .filter(Task.isTerminalTask.negate())
-                    .forEach(task -> {
-                        Flux<?> flux = task.process(this.convertCollectionToArray.apply(map.get(task)));
-                        task.getSuccessors().forEach(next -> workPath.injectFluxIntoNextTask.accept(next, flux));
-                        tasksToRemoveFromMap.add(task);
+                    .filter(Task.hasAllItsNecessaryInputFluxes)
+                    .forEach(currentTask -> {
+                        Flux<?> flux = currentTask.process(this.removeOptional.andThen(this.convertCollectionToArray)
+                                .apply(currentTask.getInputFluxesMap().values()));
+                        currentTask.getSuccessors().forEach(nextTask -> workPath.injectFlux(currentTask, nextTask, flux));
+                        tasksToRemoveFromMap.add(currentTask);
                     });
-            tasksToRemoveFromMap.forEach(map::remove);
+            tasksToRemoveFromMap.forEach(tasksToProcess::remove);
             tasksToRemoveFromMap.clear();
         }
         log.info("Done");
@@ -144,8 +155,9 @@ public class Pipeline {
      */
     private WorkPath processFinalTasks(WorkPath workPath) {
         log.info("Processing 'terminal' task {}", workPath.getEndingTask().getTaskName());
-        workPath.getTasksAndInputFluxesMap().forEach((task, inputFluxes) -> {
-            Flux<?> flux = task.process(this.convertCollectionToArray.apply(inputFluxes));
+        workPath.getTasksToProcess().forEach(currentTask -> {
+            Flux<?> flux = currentTask.process(this.removeOptional.andThen(this.convertCollectionToArray)
+                    .apply(currentTask.getInputFluxesMap().values()));
             flux.log().subscribe(log::info);
         });
         log.info("Done");

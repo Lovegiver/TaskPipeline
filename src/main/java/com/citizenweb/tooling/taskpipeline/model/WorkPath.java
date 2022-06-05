@@ -4,12 +4,8 @@ import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import reactor.core.publisher.Flux;
 
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 /**
@@ -26,10 +22,10 @@ public class WorkPath {
     @Getter
     private final Task endingTask;
     /**
-     * For a given {@link Task}, associated values are the input fluxes needed to execute the {@link Operation#process(Flux[])}.
+     * Staging collection for {@link Task}s waiting for being processed.
      */
     @Getter
-    private final Map<Task, Collection<Flux<?>>> tasksAndInputFluxesMap = new ConcurrentHashMap<>();
+    private final Set<Task> tasksToProcess = ConcurrentHashMap.newKeySet();
 
     public WorkPath(Set<Task> taskToProcess) {
         this.tasks = taskToProcess;
@@ -40,20 +36,29 @@ public class WorkPath {
 
     /**
      * Each time a {@link Flux} is produced, we have to inject it as an input of the next {@link Task}.<br>
-     * The Task and its inputs are temporarily stored in a local {@link ConcurrentHashMap}.<br>
      */
-    BiConsumer<Task, Flux<?>> injectFluxIntoNextTask = ((next, flux) -> {
-        if (this.tasksAndInputFluxesMap.get(next) != null) {
-            this.tasksAndInputFluxesMap.get(next).add(flux);
-        } else {
-            Set<Flux<?>> fluxSet = new HashSet<>();
-            fluxSet.add(flux);
-            this.tasksAndInputFluxesMap.put(next, fluxSet);
-        }
-    });
-
-    public boolean onlyEndingTaskRemains() {
-        return this.tasksAndInputFluxesMap.size() == 1 && this.tasksAndInputFluxesMap.containsKey(this.endingTask);
+    public void injectFlux(Task producer, Task consumer, Flux<?> flux) {
+        consumer.injectFluxFromTask.accept(producer, flux);
+        this.tasksToProcess.add(consumer);
     }
+
+    /**
+     * Check the content of the {@link WorkPath#tasksToProcess} collection.<br>
+     * @return TRUE if only the terminal {@link Task} remains to be processed
+     */
+    public boolean onlyEndingTaskRemains() {
+        return this.tasksToProcess.size() == 1 && this.tasksToProcess.contains(this.endingTask);
+    }
+
+    /**
+     * A {@link Task} may produce a {@link Flux} needed by other tasks not belonging to the same {@link WorkPath}.<br>
+     * @param task we want to know if this {@link Task} belongs to this {@link WorkPath}
+     * @return TRUE if the {@link Task} is part of this {@link WorkPath}
+     */
+    public boolean taskBelongsToWorkPath(Task task) {
+        return this.tasks.contains(task);
+    }
+
+
 
 }
