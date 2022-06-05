@@ -1,6 +1,7 @@
 import com.citizenweb.tooling.taskpipeline.model.Operation;
 import com.citizenweb.tooling.taskpipeline.model.Pipeline;
 import com.citizenweb.tooling.taskpipeline.model.Task;
+import lombok.extern.log4j.Log4j2;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
@@ -12,19 +13,20 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@Log4j2
 public class OperationTest {
 
-    private static final Map<String,Operation> operationsMap = new HashMap<>();
+    private static final Map<String, Operation> operationsMap = new HashMap<>();
 
     @BeforeAll
     static void initData() {
-        Operation o1 = inputs -> Flux.just(5,6,7);
-        Operation o2 = inputs -> Flux.just(7,7,7);
-        Operation o3 = inputs -> Flux.just(15,15,15);
+        Operation o1 = inputs -> Flux.just(5, 6, 7);
+        Operation o2 = inputs -> Flux.just(7, 7, 7);
+        Operation o3 = inputs -> Flux.just(15, 15, 15);
         Operation o4 = inputs -> {
             Flux<?> int1 = inputs[0];
             Flux<?> int2 = inputs[1];
-            return Flux.zip(int1, int2, (x,y) -> (int) x + (int) y);
+            return Flux.zip(int1, int2, (x, y) -> (int) x + (int) y);
         };
         operationsMap.put("o1", o1);
         operationsMap.put("o2", o2);
@@ -32,7 +34,7 @@ public class OperationTest {
         operationsMap.put("o4", o4);
     }
 
-    Function<Collection<Flux<?>>,Flux<?>[]> convertCollectionToArray = collection -> {
+    Function<Collection<Flux<?>>, Flux<?>[]> convertCollectionToArray = collection -> {
         Flux<?>[] array = new Flux[collection.size()];
         return collection.toArray(array);
     };
@@ -52,9 +54,9 @@ public class OperationTest {
         Set<Task> endingTasks = completePath.stream().filter(Task.isTerminalTask).collect(Collectors.toSet());
         Set<Task> startingTasks = completePath.stream().filter(Task.isInitialTask).collect(Collectors.toSet());
 
-        Map<Task,Collection<Flux<?>>> tasksRelationships = new ConcurrentHashMap<>();
+        Map<Task, Collection<Flux<?>>> tasksRelationships = new ConcurrentHashMap<>();
 
-        BiConsumer<Task,Flux<?>> injectFluxIntoNextTask = ((next, flux) -> {
+        BiConsumer<Task, Flux<?>> injectFluxIntoNextTask = ((next, flux) -> {
             if (tasksRelationships.get(next) != null) {
                 tasksRelationships.get(next).add(flux);
             } else {
@@ -82,7 +84,7 @@ public class OperationTest {
 
         tasksRelationships.forEach((key, value) -> {
             Flux<Integer> flux = (Flux<Integer>) key.getWrappedOperation().process(convertCollectionToArray.apply(value));
-            flux.log().subscribe(System.out::println);
+            flux.log().subscribe(log::info);
 
             StepVerifier.create(flux)
                     .expectSubscription()
@@ -94,7 +96,7 @@ public class OperationTest {
     }
 
     @Test
-    void simpleOperationsTest_withPipeline() throws InterruptedException {
+    void simpleOperationsTest_withPipeline() {
         Task t1 = new Task("Task 1", operationsMap.get("o1"), Collections.emptySet());
         Task t2 = new Task("Task 2", operationsMap.get("o2"), Collections.emptySet());
         Task t3 = new Task("Task 3", operationsMap.get("o3"), Collections.emptySet());
@@ -103,8 +105,8 @@ public class OperationTest {
         Task t6 = new Task("Task 6", operationsMap.get("o4"), Set.of(t4, t5));
         Set<Task> allTasks = Set.of(t1, t2, t3, t4, t5, t6);
         Pipeline pipeline = new Pipeline(allTasks);
-        pipeline.execute();
-        Thread.sleep(1000);
+        var resultMap = pipeline.execute();
+        resultMap.forEach((key, value) -> value.join());
     }
 
 }

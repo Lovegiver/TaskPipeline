@@ -1,11 +1,12 @@
 package com.citizenweb.tooling.taskpipeline.model;
 
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
+import com.citizenweb.tooling.taskpipeline.exceptions.TaskExecutionException;
+import com.citizenweb.tooling.taskpipeline.utils.ProcessingType;
+import lombok.*;
 import reactor.core.publisher.Flux;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -21,27 +22,69 @@ import java.util.function.Predicate;
 @Data
 public class Task implements Operation {
 
+    /** Monitors life cycle */
+    @NonNull
+    private final Monitor monitor;
+    /**
+     * Task's name - Mandatory
+     */
+    @NonNull
     private final String taskName;
+    /**
+     * The wrapped {@link Operation} - Mandatory
+     */
+    @NonNull
     private final Operation wrappedOperation;
+    /**
+     * All {@link Task}s to be executed <b>before</b> the current one (inputs for current Task)
+     */
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
+    @NonNull
     private final Set<Task> predecessors;
+    /**
+     * All {@link Task}s to be executed <b>after</b> the current one (current Task is an input for them)
+     */
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
+    @NonNull
     private final Set<Task> successors = new HashSet<>();
 
+    /**
+     * This {@link Task} has no <b>successors</b>.
+     */
     public static Predicate<Task> isTerminalTask = task -> task.getSuccessors().isEmpty();
+    /**
+     * This {@link Task} has no <b>predecessors</b>.
+     */
     public static Predicate<Task> isInitialTask = task -> task.getPredecessors().isEmpty();
 
     public Task(String taskName, Operation wrappedOperation, Set<Task> predecessors) {
-        this.taskName = taskName;
-        this.wrappedOperation = wrappedOperation;
-        this.predecessors = predecessors;
+        this.taskName = Objects.requireNonNull(taskName,
+                "A Task has to be named");
+        this.wrappedOperation = Objects.requireNonNull(wrappedOperation,
+                "A Task should wrap an Operation, but Operation is missing");
+        this.predecessors = Objects.requireNonNull(predecessors,
+                "Null is not an acceptable value. Consider using an empty collection.");
         this.predecessors.forEach(p -> p.getSuccessors().add(this));
+        this.monitor = new Monitor(ProcessingType.TASK);
     }
 
+    /**
+     * Executes the wrapped {@link Operation}.<br>
+     * @param inputs the Flux coming from preceding Operations
+     * @return a output {@link Flux}
+     */
     @Override
     public Flux<?> process(Flux<?>... inputs) {
-        return this.wrappedOperation.process(inputs);
+        try {
+            this.monitor.statusToRunning();
+            Flux<?> outputFlux = this.wrappedOperation.process(inputs);
+            this.monitor.statusToDone();
+            return outputFlux;
+        } catch (Exception ex) {
+            this.monitor.statusToError();
+            throw new TaskExecutionException(ex.getCause().toString());
+        }
     }
 }
