@@ -12,9 +12,10 @@ import java.util.UUID;
  * Object in charge of life cycle management
  */
 @ToString
-@EqualsAndHashCode
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Monitor {
     @Getter
+    @EqualsAndHashCode.Include
     private final String id;
     @Getter
     private final ProcessingType type;

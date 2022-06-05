@@ -10,7 +10,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
@@ -53,17 +52,8 @@ public class WorkPath {
         }
     });
 
-    Consumer<Collection<Task>> cleanMap = tasksToRemoveFromMap -> {
-        log.info("Starting -> Map size = {}", this.tasksAndInputFluxesMap.size());
-        tasksToRemoveFromMap.forEach(task -> {
-            Map.Entry<Task,Collection<Flux<?>>> entry = this.getTasksAndInputFluxesMap().entrySet()
-                    .stream()
-                    .filter(taskCollectionEntry -> task.equals(taskCollectionEntry.getKey()))
-                    .findFirst()
-                    .orElseThrow();
-            this.getTasksAndInputFluxesMap().entrySet().remove(entry);
-        });
-        log.info("Ending -> Map size = {}", this.tasksAndInputFluxesMap.size());
-    };
+    public boolean onlyEndingTaskRemains() {
+        return this.tasksAndInputFluxesMap.size() == 1 && this.tasksAndInputFluxesMap.containsKey(this.endingTask);
+    }
 
 }

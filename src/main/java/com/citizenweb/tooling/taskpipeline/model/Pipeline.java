@@ -1,6 +1,5 @@
 package com.citizenweb.tooling.taskpipeline.model;
 
-import lombok.extern.java.Log;
 import lombok.extern.log4j.Log4j2;
 import reactor.core.publisher.Flux;
 import reactor.util.annotation.NonNull;
@@ -22,11 +21,6 @@ public class Pipeline {
     private final Set<Task> tasks;
 
     private final ConcurrentHashMap<String, CompletableFuture<?>> runningWorkPaths = new ConcurrentHashMap<>();
-
-    public Pipeline(Set<Task> tasksToProcess) {
-        this.tasks = tasksToProcess;
-    }
-
     /**
      * Converts a Collection into an Array
      */
@@ -35,6 +29,10 @@ public class Pipeline {
         Flux<?>[] array = new Flux[collection.size()];
         return collection.toArray(array);
     };
+
+    public Pipeline(Set<Task> tasksToProcess) {
+        this.tasks = tasksToProcess;
+    }
 
     /**
      * Does 4 steps :
@@ -46,8 +44,8 @@ public class Pipeline {
      * </ol>
      */
     public Map<String, CompletableFuture<?>> execute() {
-        Collection<Set<Task>> allPaths = computePaths(this.tasks);
-        allPaths.forEach(path -> {
+        Collection<Set<Task>> allPaths = computeAllDistinctPaths(this.tasks);
+        allPaths.parallelStream().forEach(path -> {
             String name = path.stream().filter(Task.isTerminalTask).map(Task::getTaskName).findAny().orElseThrow();
             var x = CompletableFuture.supplyAsync(() -> convertToWorkPath(path))
                     .thenApply(this::processStartingTasks)
@@ -74,7 +72,7 @@ public class Pipeline {
      * @return a Collection of Sets of {@link Task}s with each Set a specific path
      */
     @NonNull
-    private Collection<Set<Task>> computePaths(@NonNull Set<Task> tasks) {
+    private Collection<Set<Task>> computeAllDistinctPaths(@NonNull Set<Task> tasks) {
         List<Set<Task>> allPaths = new ArrayList<>();
         Set<Task> terminalTasks = tasks.stream().filter(Task.isTerminalTask).collect(Collectors.toSet());
         for (Task task : terminalTasks) {
@@ -105,10 +103,12 @@ public class Pipeline {
      * @return a {@link WorkPath}
      */
     private WorkPath processStartingTasks(WorkPath workPath) {
+        log.info("Processing {} 'starting' tasks", workPath.getStartingTasks().size());
         workPath.getStartingTasks().forEach(task -> {
             Flux<?> flux = task.process(Flux.empty());
             task.getSuccessors().forEach(next -> workPath.injectFluxIntoNextTask.accept(next, flux));
         });
+        log.info("Done");
         return workPath;
     }
 
@@ -119,21 +119,23 @@ public class Pipeline {
      * @param workPath contains all {@link Task}s to be consumed but ending tasks
      */
     private WorkPath processIntermediateTasks(WorkPath workPath) {
-        Map<Task,Collection<Flux<?>>> map = workPath.getTasksAndInputFluxesMap();
-        while (!(workPath.getTasksAndInputFluxesMap().containsKey(workPath.getEndingTask())
-                && workPath.getTasksAndInputFluxesMap().keySet().size() == 1)) {
-            Set<Task> tasksToRemoveFromMap = new HashSet<>();
-            workPath.getTasksAndInputFluxesMap().keySet()
+        log.info("Processing {} 'intermediate' tasks", workPath.getTasksAndInputFluxesMap().size());
+        /* For the sake of readability */
+        var map = workPath.getTasksAndInputFluxesMap();
+        Set<Task> tasksToRemoveFromMap = new HashSet<>();
+        while (!workPath.onlyEndingTaskRemains()) {
+            map.keySet()
                     .stream()
                     .filter(Task.isTerminalTask.negate())
                     .forEach(task -> {
-                        log.warn("Processing task {}", task.getTaskName());
-                        Flux<?> flux = task.process(this.convertCollectionToArray.apply(workPath.getTasksAndInputFluxesMap().get(task)));
+                        Flux<?> flux = task.process(this.convertCollectionToArray.apply(map.get(task)));
                         task.getSuccessors().forEach(next -> workPath.injectFluxIntoNextTask.accept(next, flux));
                         tasksToRemoveFromMap.add(task);
                     });
-            workPath.cleanMap.accept(tasksToRemoveFromMap);
+            tasksToRemoveFromMap.forEach(map::remove);
+            tasksToRemoveFromMap.clear();
         }
+        log.info("Done");
         return workPath;
     }
 
@@ -141,10 +143,12 @@ public class Pipeline {
      * FinalTasks (or TerminalTasks) are the {@link Task}s we want to compute the resulting {@link Flux}.<br>
      */
     private WorkPath processFinalTasks(WorkPath workPath) {
+        log.info("Processing 'terminal' task {}", workPath.getEndingTask().getTaskName());
         workPath.getTasksAndInputFluxesMap().forEach((task, inputFluxes) -> {
             Flux<?> flux = task.process(this.convertCollectionToArray.apply(inputFluxes));
             flux.log().subscribe(log::info);
         });
+        log.info("Done");
         return workPath;
     }
 
