@@ -20,12 +20,18 @@ import java.util.stream.Collectors;
 public class WorkPath extends Composer {
     @NonNull
     @Getter
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private final Set<Task> tasks;
     @NonNull
     @Getter
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private final Set<Task> startingTasks;
     @NonNull
     @Getter
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private final Task endingTask;
     /**
      * Staging collection for {@link Task}s waiting for being processed.

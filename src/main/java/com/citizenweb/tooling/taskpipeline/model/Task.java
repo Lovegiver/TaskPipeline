@@ -56,9 +56,6 @@ public class Task extends Composer {
      * This {@link Task} has no <b>predecessors</b>.
      */
     public static Predicate<Task> isInitialTask = task -> task.getPredecessors().isEmpty();
-    /** All the necessary input fluxes are ready to use */
-    public static Predicate<Task> hasAllItsNecessaryInputFluxes = task -> task.getInputFluxesMap().values().stream()
-            .allMatch(Optional::isPresent);
 
     /**
      * Important note : the previous {@link Task}s are expressed within a {@link List} because <b>order</b>
