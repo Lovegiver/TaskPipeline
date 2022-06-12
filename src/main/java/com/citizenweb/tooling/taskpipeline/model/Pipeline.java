@@ -53,7 +53,7 @@ public class Pipeline {
     public Map<String, CompletableFuture<?>> execute() {
         Collection<Set<Task>> allPaths = computeAllDistinctPaths(this.tasks);
         allPaths.parallelStream().forEach(path -> {
-            String name = path.stream().filter(Task.isTerminalTask).map(Task::getTaskName).findAny().orElseThrow();
+            String name = path.stream().filter(Task.isTerminalTask).map(Task::getName).findAny().orElseThrow();
             var x = CompletableFuture.supplyAsync(() -> convertToWorkPath(path))
                     .thenApply(this::processStartingTasks)
                     .thenApply(this::processIntermediateTasks)
@@ -154,7 +154,7 @@ public class Pipeline {
      * FinalTasks (or TerminalTasks) are the {@link Task}s we want to compute the resulting {@link Flux}.<br>
      */
     private WorkPath processFinalTasks(WorkPath workPath) {
-        log.info("Processing 'terminal' task {}", workPath.getEndingTask().getTaskName());
+        log.info("Processing 'terminal' task {}", workPath.getEndingTask().getName());
         workPath.getTasksToProcess().forEach(currentTask -> {
             Flux<?> flux = currentTask.process(this.removeOptional.andThen(this.convertCollectionToArray)
                     .apply(currentTask.getInputFluxesMap().values()));

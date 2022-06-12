@@ -1,6 +1,10 @@
 package com.citizenweb.tooling.taskpipeline.model;
 
+import com.citizenweb.tooling.taskpipeline.utils.ProcessingType;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.NonNull;
+import lombok.ToString;
 import lombok.extern.log4j.Log4j2;
 import reactor.core.publisher.Flux;
 
@@ -12,26 +16,32 @@ import java.util.stream.Collectors;
  * A work path is a set of tasks that all are involved in the realization of an ending task.
  */
 @Log4j2
-public class WorkPath {
-    @Getter
-    private final String name;
+@EqualsAndHashCode(callSuper = true)
+public class WorkPath extends Composer {
+    @NonNull
     @Getter
     private final Set<Task> tasks;
+    @NonNull
     @Getter
     private final Set<Task> startingTasks;
+    @NonNull
     @Getter
     private final Task endingTask;
     /**
      * Staging collection for {@link Task}s waiting for being processed.
      */
+    @NonNull
     @Getter
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private final Set<Task> tasksToProcess = ConcurrentHashMap.newKeySet();
 
     public WorkPath(Set<Task> taskToProcess) {
+        super(new Monitor(ProcessingType.WORKPATH),
+                taskToProcess.stream().map(Task::getName).collect(Collectors.joining(",")));
         this.tasks = taskToProcess;
         this.startingTasks = taskToProcess.stream().filter(Task.isInitialTask).collect(Collectors.toSet());
         this.endingTask = taskToProcess.stream().filter(Task.isTerminalTask).findAny().orElseThrow();
-        this.name = taskToProcess.stream().filter(Task.isTerminalTask).map(Task::getTaskName).findAny().orElseThrow();
     }
 
     /**
@@ -60,5 +70,14 @@ public class WorkPath {
     }
 
 
-
+    /**
+     * Processes the input {@link Flux} with any logic you deserve and then return a Flux.<br>
+     *
+     * @param inputs the Flux coming from preceding Operations
+     * @return a Flux to be used by next Operation-s or to be subscribed to in order to finally get the result
+     */
+    @Override
+    public Flux<?> process(Flux<?>... inputs) {
+        return null;
+    }
 }
