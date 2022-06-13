@@ -86,7 +86,7 @@ public class WorkPath extends Wrapper {
             Flux<?> flux = currentTask.process(Flux.empty());
             currentTask.getSuccessors()
                     .stream()
-                    .filter(this::taskBelongsToWorkPath) // TODO : why ?
+                    .filter(this::taskBelongsToWorkPath)
                     .forEach(nextTask -> this.injectFlux(currentTask, nextTask, flux));
         });
         log.info("Done");
