@@ -1,7 +1,6 @@
 package com.citizenweb.tooling.taskpipeline.model;
 
 import lombok.Getter;
-import lombok.extern.log4j.Log4j2;
 import lombok.extern.slf4j.Slf4j;
 import reactor.util.annotation.NonNull;
 
