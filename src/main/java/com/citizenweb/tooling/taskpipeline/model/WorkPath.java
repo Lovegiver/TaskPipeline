@@ -7,6 +7,7 @@ import lombok.NonNull;
 import lombok.ToString;
 import lombok.extern.log4j.Log4j2;
 import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -83,7 +84,7 @@ public class WorkPath extends Wrapper {
     private WorkPath processStartingTasks() {
         log.info("Processing {} 'starting' tasks", this.getStartingTasks().size());
         this.getStartingTasks().forEach(currentTask -> {
-            Flux<?> flux = currentTask.process(Flux.empty());
+            Flux<?> flux = currentTask.process(Flux.empty()).publishOn(Schedulers.boundedElastic());
             currentTask.getSuccessors()
                     .stream()
                     .filter(this::taskBelongsToWorkPath)
@@ -110,7 +111,7 @@ public class WorkPath extends Wrapper {
                     .filter(Task.hasAllItsNecessaryInputFluxes)
                     .forEach(currentTask -> {
                         Flux<?> flux = currentTask.process(this.removeOptional.andThen(this.convertCollectionToArray)
-                                .apply(currentTask.getInputFluxesMap().values()));
+                                .apply(currentTask.getInputFluxesMap().values())).publishOn(Schedulers.boundedElastic());
                         currentTask.getSuccessors().forEach(nextTask -> this.injectFlux(currentTask, nextTask, flux));
                         tasksToRemoveFromMap.add(currentTask);
                     });

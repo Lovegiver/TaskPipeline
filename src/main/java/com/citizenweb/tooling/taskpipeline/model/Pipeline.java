@@ -76,7 +76,7 @@ public class Pipeline {
      * @param path the path to build
      * @param task the reference {@link Task}
      */
-    void findAllTasksFromTree(Set<Task> path, Task task) {
+    private void findAllTasksFromTree(Set<Task> path, Task task) {
         path.add(task);
         if (!Task.isInitialTask.test(task)) {
             for (Task t : task.getPredecessors()) {
