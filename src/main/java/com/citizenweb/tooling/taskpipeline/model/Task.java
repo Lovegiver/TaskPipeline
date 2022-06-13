@@ -21,7 +21,7 @@ import java.util.function.Predicate;
  */
 @Log4j2
 @EqualsAndHashCode(callSuper = true)
-public class Task extends Composer {
+public class Task extends Wrapper implements Operation {
 
     /**
      * The wrapped {@link Operation} - Mandatory

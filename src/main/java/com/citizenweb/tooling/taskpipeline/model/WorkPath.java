@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
  */
 @Log4j2
 @EqualsAndHashCode(callSuper = true)
-public class WorkPath extends Composer {
+public class WorkPath extends Wrapper {
     @NonNull
     @Getter
     @ToString.Exclude
@@ -75,15 +75,4 @@ public class WorkPath extends Composer {
         return this.tasks.contains(task);
     }
 
-
-    /**
-     * Processes the input {@link Flux} with any logic you deserve and then return a Flux.<br>
-     *
-     * @param inputs the Flux coming from preceding Operations
-     * @return a Flux to be used by next Operation-s or to be subscribed to in order to finally get the result
-     */
-    @Override
-    public Flux<?> process(Flux<?>... inputs) {
-        return null;
-    }
 }

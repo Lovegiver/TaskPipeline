@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-public abstract class Composer implements Operation {
+public abstract class Wrapper {
 
     /** Monitors life cycle */
     @NonNull
@@ -31,20 +31,12 @@ public abstract class Composer implements Operation {
     @EqualsAndHashCode.Exclude
     protected final Map<Task, Optional<Flux<?>>> inputFluxesMap = Collections.synchronizedMap(new LinkedHashMap<>());
     /** All the necessary input fluxes are ready to use */
-    public static Predicate<Composer> hasAllItsNecessaryInputFluxes = composer -> composer.getInputFluxesMap().values().stream()
+    public static Predicate<Wrapper> hasAllItsNecessaryInputFluxes = wrapper -> wrapper.getInputFluxesMap().values().stream()
             .allMatch(Optional::isPresent);
 
-    protected Composer(@NonNull Monitor monitor, @NonNull String name) {
+    protected Wrapper(@NonNull Monitor monitor, @NonNull String name) {
         this.monitor = monitor;
         this.name = name;
     }
 
-    /**
-     * Processes the input {@link Flux} with any logic you deserve and then return a Flux.<br>
-     *
-     * @param inputs the Flux coming from preceding Operations
-     * @return a Flux to be used by next Operation-s or to be subscribed to in order to finally get the result
-     */
-    @Override
-    abstract public Flux<?> process(Flux<?>... inputs);
 }
