@@ -3,6 +3,7 @@ package com.citizenweb.tooling.taskpipeline.model;
 import com.citizenweb.tooling.taskpipeline.exceptions.TaskExecutionException;
 import com.citizenweb.tooling.taskpipeline.utils.ProcessingType;
 import lombok.*;
+import lombok.extern.log4j.Log4j2;
 import reactor.core.publisher.Flux;
 
 import java.util.*;
@@ -18,42 +19,34 @@ import java.util.function.Predicate;
  * A collection containing previous {@link Task}s is also mandatory, but this collection can be empty if the Task wraps
  * a 'starting' operation.
  */
-@Data
-public class Task implements Operation {
+@Log4j2
+@EqualsAndHashCode(callSuper = true)
+public class Task extends Wrapper implements Operation {
 
-    /** Monitors life cycle */
-    @NonNull
-    private final Monitor monitor;
-    /**
-     * Task's name - Mandatory
-     */
-    @NonNull
-    private final String taskName;
     /**
      * The wrapped {@link Operation} - Mandatory
      */
     @NonNull
+    @Getter
+    @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private final Operation wrappedOperation;
     /**
      * All {@link Task}s to be executed <b>before</b> the current one (inputs for current Task)
      */
+    @NonNull
+    @Getter
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    @NonNull
     private final LinkedHashSet<Task> predecessors;
     /**
      * All {@link Task}s to be executed <b>after</b> the current one (current Task is an input for them)
      */
+    @NonNull
+    @Getter
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    @NonNull
     private final LinkedHashSet<Task> successors = new LinkedHashSet<>();
-    /** Each time a 'predecessor' produces a {@link Flux}, it has to be injected in the right order for further execution */
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    @NonNull
-    private final Map<Task,Optional<Flux<?>>> inputFluxesMap = Collections.synchronizedMap(new LinkedHashMap<>());
 
     /**
      * This {@link Task} has no <b>successors</b>.
@@ -63,9 +56,6 @@ public class Task implements Operation {
      * This {@link Task} has no <b>predecessors</b>.
      */
     public static Predicate<Task> isInitialTask = task -> task.getPredecessors().isEmpty();
-    /** All the necessary input fluxes are ready to use */
-    public static Predicate<Task> hasAllItsNecessaryInputFluxes = task -> task.getInputFluxesMap().values().stream()
-            .allMatch(Optional::isPresent);
 
     /**
      * Important note : the previous {@link Task}s are expressed within a {@link List} because <b>order</b>
@@ -76,8 +66,8 @@ public class Task implements Operation {
      * @param predecessors {@link Task}s to be executed before the current one
      */
     public Task(String taskName, Operation wrappedOperation, List<Task> predecessors) {
-        this.taskName = Objects.requireNonNull(taskName,
-                "A Task has to be named");
+        super(new Monitor(ProcessingType.TASK), Objects.requireNonNull(taskName,
+                "A Task has to be named"));
         this.wrappedOperation = Objects.requireNonNull(wrappedOperation,
                 "A Task should wrap an Operation, but Operation is missing");
         this.predecessors = new LinkedHashSet<>(Objects.requireNonNull(predecessors,
@@ -86,7 +76,6 @@ public class Task implements Operation {
             p.getSuccessors().add(this);
             this.inputFluxesMap.put(p, Optional.empty());
         });
-        this.monitor = new Monitor(ProcessingType.TASK);
     }
 
     /**
@@ -103,7 +92,7 @@ public class Task implements Operation {
             return outputFlux;
         } catch (Exception ex) {
             this.monitor.statusToError();
-            String taskSignature = String.format("%s / %s", this.taskName, this.monitor.getId());
+            String taskSignature = String.format("%s / %s", this.getName(), this.monitor.getId());
             throw new TaskExecutionException(getErrorMessage(ex, taskSignature));
         }
     }
