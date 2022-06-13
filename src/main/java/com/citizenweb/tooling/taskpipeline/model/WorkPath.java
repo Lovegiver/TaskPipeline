@@ -52,16 +52,23 @@ public class WorkPath extends Wrapper {
         this.endingTask = taskToProcess.stream().filter(Task.isTerminalTask).findAny().orElseThrow();
     }
 
-
+    /**
+     * Does 3 steps :
+     * <ol>
+     *     <li>process all starting tasks</li>
+     *     <li>process all intermediate tasks</li>
+     *     <li>process all terminal tasks</li>
+     * </ol>
+     */
     public CompletableFuture<?> execute() {
-        return CompletableFuture.supplyAsync(() -> processStartingTasks(this))
+        return CompletableFuture.supplyAsync(this::processStartingTasks)
                 .thenApply(this::processIntermediateTasks)
                 .thenApply(this::processFinalTasks)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
                         log.error("Error occurred : " + ex.getCause());
                     } else {
-                        log.info("Finished processing 'workpath' : " + this.getName());
+                        log.info("Finished processing 'work path' : " + this.getName());
                     }
                 });
     }
@@ -71,62 +78,61 @@ public class WorkPath extends Wrapper {
      * These {@link Task}s are specific because they do not need any input {@link Flux}.<br>
      * They all will be consumed by the following {@link Task}s.<br>
      *
-     * @param workPath contains all the {@link Task}s without any predecessors
      * @return a {@link WorkPath}
      */
-    private WorkPath processStartingTasks(WorkPath workPath) {
-        log.info("Processing {} 'starting' tasks", workPath.getStartingTasks().size());
-        workPath.getStartingTasks().forEach(currentTask -> {
+    private WorkPath processStartingTasks() {
+        log.info("Processing {} 'starting' tasks", this.getStartingTasks().size());
+        this.getStartingTasks().forEach(currentTask -> {
             Flux<?> flux = currentTask.process(Flux.empty());
             currentTask.getSuccessors()
                     .stream()
-                    .filter(workPath::taskBelongsToWorkPath)
-                    .forEach(nextTask -> workPath.injectFlux(currentTask, nextTask, flux));
+                    .filter(this::taskBelongsToWorkPath) // TODO : why ?
+                    .forEach(nextTask -> this.injectFlux(currentTask, nextTask, flux));
         });
         log.info("Done");
-        return workPath;
+        return this;
     }
 
     /**
      * IntermediateTasks have predecessors and successors.<br>
      * They all will be consumed, layer after layer, until we reach the terminal {@link Task}s.<br>
      *
-     * @param workPath contains all {@link Task}s to be consumed but ending tasks
+     * @param workPath this object, a wrapper for all tasks dedicated to one single 'final' {@link Task}
      */
     private WorkPath processIntermediateTasks(WorkPath workPath) {
-        log.info("Processing {} 'intermediate' tasks", workPath.getTasksToProcess().size());
+        log.info("Processing {} 'intermediate' tasks", this.getTasksToProcess().size());
         /* For the sake of readability */
-        var tasksToProcess = workPath.getTasksToProcess();
+        var tasksToProcess = this.getTasksToProcess();
         Set<Task> tasksToRemoveFromMap = new HashSet<>();
-        while (!workPath.onlyEndingTaskRemains()) {
+        while (!this.onlyEndingTaskRemains()) {
             tasksToProcess.stream()
                     .filter(Task.isTerminalTask.negate())
                     .filter(Task.hasAllItsNecessaryInputFluxes)
                     .forEach(currentTask -> {
                         Flux<?> flux = currentTask.process(this.removeOptional.andThen(this.convertCollectionToArray)
                                 .apply(currentTask.getInputFluxesMap().values()));
-                        currentTask.getSuccessors().forEach(nextTask -> workPath.injectFlux(currentTask, nextTask, flux));
+                        currentTask.getSuccessors().forEach(nextTask -> this.injectFlux(currentTask, nextTask, flux));
                         tasksToRemoveFromMap.add(currentTask);
                     });
             tasksToRemoveFromMap.forEach(tasksToProcess::remove);
             tasksToRemoveFromMap.clear();
         }
         log.info("Done");
-        return workPath;
+        return this;
     }
 
     /**
      * FinalTasks (or TerminalTasks) are the {@link Task}s we want to compute the resulting {@link Flux}.<br>
      */
     private WorkPath processFinalTasks(WorkPath workPath) {
-        log.info("Processing 'terminal' task {}", workPath.getEndingTask().getName());
-        workPath.getTasksToProcess().forEach(currentTask -> {
+        log.info("Processing 'terminal' task {}", this.getEndingTask().getName());
+        this.getTasksToProcess().forEach(currentTask -> {
             Flux<?> flux = currentTask.process(this.removeOptional.andThen(this.convertCollectionToArray)
                     .apply(currentTask.getInputFluxesMap().values()));
             flux.log().subscribe(log::info);
         });
         log.info("Done");
-        return workPath;
+        return this;
     }
     /**
      * Converts a Collection into an Array

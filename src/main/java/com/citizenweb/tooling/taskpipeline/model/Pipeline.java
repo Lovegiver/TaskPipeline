@@ -25,13 +25,8 @@ public class Pipeline {
     }
 
     /**
-     * Does 4 steps :
-     * <ol>
-     *     <li>from the given tasks, compute all possible paths, ie all the tasks to process in order to complete a terminal task</li>
-     *     <li>process all starting tasks</li>
-     *     <li>process all intermediate tasks</li>
-     *     <li>process all terminal tasks</li>
-     * </ol>
+     * From the given tasks, compute all possible paths, ie all the tasks to process
+     * in order to complete a 'terminal' (final, ending) {@link Task}
      */
     public Map<String, CompletableFuture<?>> execute() {
         Collection<Set<Task>> allPaths = computeAllDistinctPaths(this.tasks);
@@ -60,7 +55,7 @@ public class Pipeline {
             this.findAllTasksFromTree(pathForTask, task);
             allPaths.add(pathForTask);
         }
-        log.info("{} 'workpath' found", allPaths.size());
+        log.info("{} 'work path' found", allPaths.size());
         return allPaths;
     }
 
