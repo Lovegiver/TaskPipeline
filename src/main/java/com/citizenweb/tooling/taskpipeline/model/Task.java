@@ -2,11 +2,17 @@ package com.citizenweb.tooling.taskpipeline.model;
 
 import com.citizenweb.tooling.taskpipeline.exceptions.TaskExecutionException;
 import com.citizenweb.tooling.taskpipeline.utils.ProcessingType;
-import lombok.*;
-import lombok.extern.log4j.Log4j2;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NonNull;
+import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 
-import java.util.*;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 
@@ -19,7 +25,7 @@ import java.util.function.Predicate;
  * A collection containing previous {@link Task}s is also mandatory, but this collection can be empty if the Task wraps
  * a 'starting' operation.
  */
-@Log4j2
+@Slf4j
 @EqualsAndHashCode(callSuper = true)
 public class Task extends Wrapper implements Operation {
 

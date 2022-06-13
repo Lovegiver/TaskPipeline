@@ -6,7 +6,8 @@
         </Console>
     </Appenders>
     <Loggers>
-        <Logger name="com.citizenweb" level="info" additivity="false">
+        <!-- avoid duplicated logs with additivity=false -->
+        <Logger name="com.citizenweb" level="debug" additivity="false">
             <AppenderRef ref="LogToConsole"/>
         </Logger>
         <Root level="error">

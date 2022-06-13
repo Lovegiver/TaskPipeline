@@ -1,13 +1,16 @@
 import com.citizenweb.tooling.taskpipeline.model.Operation;
 import com.citizenweb.tooling.taskpipeline.model.Pipeline;
 import com.citizenweb.tooling.taskpipeline.model.Task;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 
 import java.util.*;
+import java.util.function.Consumer;
 
+@Slf4j
 public class PipelineTest {
 
     private static final Map<String, Operation> operationsMap = new HashMap<>();
@@ -56,6 +59,7 @@ public class PipelineTest {
         Pipeline pipeline = new Pipeline(allTasks);
         var resultMap = pipeline.execute();
         resultMap.forEach((name, future) -> future.join());
+        this.printTasksState.accept(pipeline);
     }
 
     @Test
@@ -67,6 +71,7 @@ public class PipelineTest {
         Pipeline pipeline = new Pipeline(allTasks);
         var resultMap = pipeline.execute();
         resultMap.forEach((name, future) -> future.join());
+        this.printTasksState.accept(pipeline);
     }
 
     @Test
@@ -84,6 +89,7 @@ public class PipelineTest {
         Pipeline pipeline = new Pipeline(allTasks);
         var resultMap = pipeline.execute();
         resultMap.forEach((name, future) -> future.join());
+        this.printTasksState.accept(pipeline);
     }
 
     @Test
@@ -92,6 +98,11 @@ public class PipelineTest {
         LinkedHashSet<String> stringLinkedHashSet = new LinkedHashSet<>(stringList);
         Assertions.assertArrayEquals(new String[]{"zozo", "alter", "barman"}, stringLinkedHashSet.toArray());
     }
+
+    private final Consumer<Pipeline> printTasksState = pipeline -> {
+        log.info("--- MONITOR DATA ---");
+        pipeline.getTasks().forEach(task -> log.info(String.format("Task %s -> %s", task.getName(), task.getMonitor())));
+    };
 
 
 }

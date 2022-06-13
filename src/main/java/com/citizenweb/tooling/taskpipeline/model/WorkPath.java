@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.ToString;
 import lombok.extern.log4j.Log4j2;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 
@@ -18,7 +19,7 @@ import java.util.stream.Collectors;
 /**
  * A work path is a set of tasks that all are involved in the realization of an ending task.
  */
-@Log4j2
+@Slf4j
 @EqualsAndHashCode(callSuper = true)
 public class WorkPath extends Wrapper {
     @NonNull
@@ -130,7 +131,7 @@ public class WorkPath extends Wrapper {
         this.getTasksToProcess().forEach(currentTask -> {
             Flux<?> flux = currentTask.process(this.removeOptional.andThen(this.convertCollectionToArray)
                     .apply(currentTask.getInputFluxesMap().values()));
-            flux.log().subscribe(log::info);
+            flux.log().subscribe(o -> log.info(String.valueOf(o)));
         });
         log.info("Done");
         return this;

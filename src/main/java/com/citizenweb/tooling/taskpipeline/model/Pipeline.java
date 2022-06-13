@@ -1,6 +1,8 @@
 package com.citizenweb.tooling.taskpipeline.model;
 
+import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
+import lombok.extern.slf4j.Slf4j;
 import reactor.util.annotation.NonNull;
 
 import java.util.*;
@@ -11,11 +13,12 @@ import java.util.stream.Collectors;
 /**
  * A {@link Pipeline} contains all the logic needed to consume {@link Task}s in the most efficient way
  */
-@Log4j2
+@Slf4j
 public class Pipeline {
     /**
      * All the {@link Task} to process
      */
+    @Getter
     private final Set<Task> tasks;
 
     private final ConcurrentHashMap<String, CompletableFuture<?>> runningWorkPaths = new ConcurrentHashMap<>();

@@ -1,7 +1,7 @@
 import com.citizenweb.tooling.taskpipeline.model.Operation;
 import com.citizenweb.tooling.taskpipeline.model.Pipeline;
 import com.citizenweb.tooling.taskpipeline.model.Task;
-import lombok.extern.log4j.Log4j2;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
@@ -13,7 +13,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-@Log4j2
+@Slf4j
 public class OperationTest {
 
     private static final Map<String, Operation> operationsMap = new HashMap<>();
@@ -84,7 +84,7 @@ public class OperationTest {
 
         tasksRelationships.forEach((key, value) -> {
             Flux<Integer> flux = (Flux<Integer>) key.getWrappedOperation().process(convertCollectionToArray.apply(value));
-            flux.log().subscribe(log::info);
+            flux.log().subscribe(o -> log.info(String.valueOf(o)));
 
             StepVerifier.create(flux)
                     .expectSubscription()
