@@ -2,12 +2,18 @@ package com.citizenweb.tooling.taskpipeline.model;
 
 import com.citizenweb.tooling.taskpipeline.exceptions.TaskExecutionException;
 import com.citizenweb.tooling.taskpipeline.utils.ProcessingType;
-import lombok.*;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NonNull;
+import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 
-import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Objects;
-import java.util.Set;
+import java.util.Optional;
+import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 
 /**
@@ -19,36 +25,34 @@ import java.util.function.Predicate;
  * A collection containing previous {@link Task}s is also mandatory, but this collection can be empty if the Task wraps
  * a 'starting' operation.
  */
-@Data
-public class Task implements Operation {
+@Slf4j
+@EqualsAndHashCode(callSuper = true)
+public class Task extends Wrapper implements Operation {
 
-    /** Monitors life cycle */
-    @NonNull
-    private final Monitor monitor;
-    /**
-     * Task's name - Mandatory
-     */
-    @NonNull
-    private final String taskName;
     /**
      * The wrapped {@link Operation} - Mandatory
      */
     @NonNull
+    @Getter
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private final Operation wrappedOperation;
     /**
      * All {@link Task}s to be executed <b>before</b> the current one (inputs for current Task)
      */
+    @NonNull
+    @Getter
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    @NonNull
-    private final Set<Task> predecessors;
+    private final LinkedHashSet<Task> predecessors;
     /**
      * All {@link Task}s to be executed <b>after</b> the current one (current Task is an input for them)
      */
+    @NonNull
+    @Getter
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    @NonNull
-    private final Set<Task> successors = new HashSet<>();
+    private final LinkedHashSet<Task> successors = new LinkedHashSet<>();
 
     /**
      * This {@link Task} has no <b>successors</b>.
@@ -59,15 +63,25 @@ public class Task implements Operation {
      */
     public static Predicate<Task> isInitialTask = task -> task.getPredecessors().isEmpty();
 
-    public Task(String taskName, Operation wrappedOperation, Set<Task> predecessors) {
-        this.taskName = Objects.requireNonNull(taskName,
-                "A Task has to be named");
+    /**
+     * Important note : the previous {@link Task}s are expressed within a {@link List} because <b>order</b>
+     * is important.<br>
+     * The order of the previous {@link Task}s <b>must</b> be the same as the {@link Operation}"s input {@link Flux}es.<br>
+     * @param taskName the name of the current {@link Task} for {@link Monitor}ing and logging
+     * @param wrappedOperation the {@link Operation} wrapped by this {@link Task}
+     * @param predecessors {@link Task}s to be executed before the current one
+     */
+    public Task(String taskName, Operation wrappedOperation, List<Task> predecessors) {
+        super(new Monitor(ProcessingType.TASK), Objects.requireNonNull(taskName,
+                "A Task has to be named"));
         this.wrappedOperation = Objects.requireNonNull(wrappedOperation,
                 "A Task should wrap an Operation, but Operation is missing");
-        this.predecessors = Objects.requireNonNull(predecessors,
-                "Null is not an acceptable value. Consider using an empty collection.");
-        this.predecessors.forEach(p -> p.getSuccessors().add(this));
-        this.monitor = new Monitor(ProcessingType.TASK);
+        this.predecessors = new LinkedHashSet<>(Objects.requireNonNull(predecessors,
+                "Null is not an acceptable value. Consider using an empty collection."));
+        this.predecessors.forEach(p -> {
+            p.getSuccessors().add(this);
+            this.inputFluxesMap.put(p, Optional.empty());
+        });
     }
 
     /**
@@ -84,7 +98,30 @@ public class Task implements Operation {
             return outputFlux;
         } catch (Exception ex) {
             this.monitor.statusToError();
-            throw new TaskExecutionException(ex.getCause().toString());
+            String taskSignature = String.format("%s / %s", this.getName(), this.monitor.getId());
+            throw new TaskExecutionException(getErrorMessage(ex, taskSignature));
         }
+    }
+
+    /**
+     * Once a 'predecessor' has produced its output {@link Flux}, we can replace the default {@link Optional#empty()}
+     * in the {@link Task#inputFluxesMap} of the consuming {@link Task}.<br>
+     */
+    public BiConsumer<Task,Flux<?>> injectFluxFromTask = ((task, flux) ->
+            this.inputFluxesMap.replace(task, Optional.empty(), Optional.of(flux)));
+
+    /**
+     * Retrieve the root cause of an exception :
+     * <ol>
+     *     <li>primarily with the {@link Throwable#getCause()}</li>
+     *     <li>else with the {@link Throwable#getMessage()}</li>
+     * </ol>
+     * @param throwable the thrown exception we want to get message from
+     * @param taskName the involved task to enrich the returned message
+     * @return a String composed by the exception root cause and the {@link Task}'s name
+     */
+    private String getErrorMessage(Throwable throwable, String taskName) {
+        String errMsg = throwable.getCause() != null ? throwable.getCause().toString() : throwable.getMessage();
+        return String.format("Exception while processing task [ %s ] -> %s", taskName, errMsg);
     }
 }
