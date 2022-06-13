@@ -104,5 +104,4 @@ public class PipelineTest {
         pipeline.getTasks().forEach(task -> log.info(String.format("Task %s -> %s", task.getName(), task.getMonitor())));
     };
 
-
 }
