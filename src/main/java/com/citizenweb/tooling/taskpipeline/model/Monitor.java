@@ -27,6 +27,10 @@ public class Monitor {
     private LocalDateTime endTime;
     @Getter @Setter
     private Duration duration;
+    /** Locates a task within a work path. Terminal task is rank 1 by default. Other tasks ranks depend
+     * on their respective location compared to the terminal task */
+    @Getter @Setter
+    private int rank;
 
     public Monitor(ProcessingType monitoredObject) {
         this.type = monitoredObject;
