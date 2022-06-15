@@ -62,14 +62,19 @@ public class WorkPath extends Wrapper {
      * </ol>
      */
     public CompletableFuture<?> execute() {
-        return CompletableFuture.supplyAsync(this::processStartingTasks)
+        return CompletableFuture.supplyAsync( () -> {
+            this.monitor.statusToRunning();
+            return this.processStartingTasks();
+                })
                 .thenApply(this::processIntermediateTasks)
                 .thenApply(this::processFinalTasks)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
                         log.error("Error occurred : " + ex.getCause());
+                        this.monitor.statusToError();
                     } else {
                         log.info("Finished processing 'work path' : " + this.getName());
+                        this.monitor.statusToDone();
                     }
                 });
     }
