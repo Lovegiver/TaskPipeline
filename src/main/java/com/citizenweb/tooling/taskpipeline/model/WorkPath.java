@@ -6,7 +6,9 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.CollectionUtils;
 import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 import java.util.*;
@@ -44,6 +46,8 @@ public class WorkPath extends Wrapper {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private final Set<Task> tasksToProcess = ConcurrentHashMap.newKeySet();
+    /** Dedicated {@link Scheduler} */
+    private final Scheduler scheduler = Schedulers.parallel();
 
     public WorkPath(Set<Task> taskToProcess) {
         super(new Monitor(ProcessingType.WORKPATH),
@@ -73,7 +77,7 @@ public class WorkPath extends Wrapper {
                         log.error("Error occurred : " + ex.getCause());
                         this.monitor.statusToError();
                     } else {
-                        log.info("Finished processing 'work path' : " + this.getName());
+                        log.info("Finished processing 'work path' : " + this);
                         this.monitor.statusToDone();
                     }
                 });
@@ -89,7 +93,7 @@ public class WorkPath extends Wrapper {
     private WorkPath processStartingTasks() {
         log.info("Processing {} 'starting' tasks", this.getStartingTasks().size());
         this.getStartingTasks().forEach(currentTask -> {
-            Flux<?> flux = currentTask.process(Flux.empty()).publishOn(Schedulers.boundedElastic());
+            Flux<?> flux = currentTask.process(Flux.empty()).publishOn(this.scheduler);
             currentTask.getSuccessors()
                     .stream()
                     .filter(this::taskBelongsToWorkPath)
@@ -109,19 +113,21 @@ public class WorkPath extends Wrapper {
         log.info("Processing {} 'intermediate' tasks", this.getTasksToProcess().size());
         /* For the sake of readability */
         var tasksToProcess = this.getTasksToProcess();
-        Set<Task> tasksToRemoveFromMap = new HashSet<>();
-        while (!this.onlyEndingTaskRemains()) {
-            tasksToProcess.stream()
-                    .filter(Task.isTerminalTask.negate())
-                    .filter(Task.hasAllItsNecessaryInputFluxes)
-                    .forEach(currentTask -> {
-                        Flux<?> flux = currentTask.process(this.removeOptional.andThen(this.convertCollectionToArray)
-                                .apply(currentTask.getInputFluxesMap().values())).publishOn(Schedulers.boundedElastic());
-                        currentTask.getSuccessors().forEach(nextTask -> this.injectFlux(currentTask, nextTask, flux));
-                        tasksToRemoveFromMap.add(currentTask);
-                    });
-            tasksToRemoveFromMap.forEach(tasksToProcess::remove);
-            tasksToRemoveFromMap.clear();
+        if (!CollectionUtils.isEmpty(tasksToProcess)) {
+            Set<Task> tasksToRemoveFromMap = new HashSet<>();
+            while (!this.onlyEndingTaskRemains()) {
+                tasksToProcess.stream()
+                        .filter(Task.isTerminalTask.negate())
+                        .filter(Task.hasAllItsNecessaryInputFluxes)
+                        .forEach(currentTask -> {
+                            Flux<?> flux = currentTask.process(this.removeOptional.andThen(this.convertCollectionToArray)
+                                    .apply(currentTask.getInputFluxesMap().values())).publishOn(this.scheduler);
+                            currentTask.getSuccessors().forEach(nextTask -> this.injectFlux(currentTask, nextTask, flux));
+                            tasksToRemoveFromMap.add(currentTask);
+                        });
+                tasksToRemoveFromMap.forEach(tasksToProcess::remove);
+                tasksToRemoveFromMap.clear();
+            }
         }
         log.info("Done");
         return this;
@@ -132,11 +138,15 @@ public class WorkPath extends Wrapper {
      */
     private WorkPath processFinalTasks(WorkPath workPath) {
         log.info("Processing 'terminal' task {}", this.getEndingTask().getName());
-        this.getTasksToProcess().forEach(currentTask -> {
-            Flux<?> flux = currentTask.process(this.removeOptional.andThen(this.convertCollectionToArray)
-                    .apply(currentTask.getInputFluxesMap().values()));
-            flux.log().subscribe(o -> log.info(String.valueOf(o)));
-        });
+        /* For the sake of readability */
+        var tasksToProcess = this.getTasksToProcess();
+        if (!CollectionUtils.isEmpty(tasksToProcess)) {
+            tasksToProcess.forEach(currentTask -> {
+                Flux<?> flux = currentTask.process(this.removeOptional.andThen(this.convertCollectionToArray)
+                        .apply(currentTask.getInputFluxesMap().values()));
+                flux.log().subscribe(o -> log.info(String.valueOf(o)));
+            });
+        }
         log.info("Done");
         return this;
     }

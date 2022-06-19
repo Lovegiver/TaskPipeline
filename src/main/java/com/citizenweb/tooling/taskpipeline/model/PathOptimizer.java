@@ -1,5 +1,7 @@
 package com.citizenweb.tooling.taskpipeline.model;
 
+import com.citizenweb.tooling.taskpipeline.utils.TaskUtils;
+
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -24,29 +26,11 @@ public interface PathOptimizer {
         List<WorkPath> workPaths = new ArrayList<>();
         Set<Task> terminalTasks = allTasks.stream().filter(Task.isTerminalTask).collect(Collectors.toSet());
         for (Task task : terminalTasks) {
-            Set<Task> pathForTask = new HashSet<>();
-            findAllTasksFromTree(pathForTask, task, 0);
-            workPaths.add(new WorkPath(pathForTask));
+            Set<Task> pathFromTerminalTask = new HashSet<>();
+            TaskUtils.buildPathFromTerminalToInitial(pathFromTerminalTask, task, 0);
+            workPaths.add(new WorkPath(pathFromTerminalTask));
         }
         return workPaths;
     };
-
-    /**
-     * Recursive function used to compute the whole path associated to a terminal {@link Task}.<br>
-     *
-     * @param path the path to build
-     * @param task the reference {@link Task}
-     * @param rank position of the task into the work path (default : terminal task = 1)
-     */
-    private static void findAllTasksFromTree(Set<Task> path, Task task, int rank) {
-        int taskRank = rank + 1;
-        task.getMonitor().setRank(taskRank);
-        path.add(task);
-        if (!Task.isInitialTask.test(task)) {
-            for (Task t : task.getPredecessors()) {
-                findAllTasksFromTree(path, t, taskRank);
-            }
-        }
-    }
 
 }
