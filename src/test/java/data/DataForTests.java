@@ -1,9 +1,10 @@
 package data;
 
-import com.citizenweb.tooling.taskpipeline.model.Operation;
+import com.citizenweb.tooling.taskpipeline.core.model.Operation;
 import lombok.Getter;
 import reactor.core.publisher.Flux;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -20,7 +21,7 @@ public class DataForTests {
             Operation o4 = inputs -> {
                 Flux<?> int1 = inputs[0];
                 Flux<?> int2 = inputs[1];
-                return Flux.zip(int1, int2, (x, y) -> (int) x + (int) y);
+                return Flux.interval(Duration.ofSeconds(1)).zip(int1, int2, (x, y) -> (int) x + (int) y);
             };
             @SuppressWarnings("SpellCheckingInspection")
             Operation o5 = inputs -> Flux.just("pangolins", "chien",

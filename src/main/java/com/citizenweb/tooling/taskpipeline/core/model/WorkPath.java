@@ -1,6 +1,6 @@
-package com.citizenweb.tooling.taskpipeline.model;
+package com.citizenweb.tooling.taskpipeline.core.model;
 
-import com.citizenweb.tooling.taskpipeline.utils.ProcessingType;
+import com.citizenweb.tooling.taskpipeline.core.utils.ProcessingType;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NonNull;
@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @EqualsAndHashCode(callSuper = true)
-public class WorkPath extends Wrapper {
+public class WorkPath extends Monitorable {
     @NonNull
     @Getter
     @ToString.Exclude
@@ -118,7 +118,7 @@ public class WorkPath extends Wrapper {
             while (!this.onlyEndingTaskRemains()) {
                 tasksToProcess.stream()
                         .filter(Task.isTerminalTask.negate())
-                        .filter(Task.hasAllItsNecessaryInputFluxes)
+                        .filter(hasAllItsNecessaryInputFluxes)
                         .forEach(currentTask -> {
                             Flux<?> flux = currentTask.process(this.removeOptional.andThen(this.convertCollectionToArray)
                                     .apply(currentTask.getInputFluxesMap().values())).publishOn(this.scheduler);

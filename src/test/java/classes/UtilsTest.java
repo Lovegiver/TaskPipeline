@@ -1,7 +1,10 @@
 package classes;
 
-import com.citizenweb.tooling.taskpipeline.model.*;
-import com.citizenweb.tooling.taskpipeline.utils.TaskUtils;
+import com.citizenweb.tooling.taskpipeline.core.model.Operation;
+import com.citizenweb.tooling.taskpipeline.core.model.Pipeline;
+import com.citizenweb.tooling.taskpipeline.core.model.Task;
+import com.citizenweb.tooling.taskpipeline.core.model.WorkPath;
+import com.citizenweb.tooling.taskpipeline.core.utils.TaskUtils;
 import data.DataForTests;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Assertions;
@@ -41,7 +44,7 @@ public class UtilsTest {
         }
         Assertions.assertEquals(1, workPaths.size());
 
-        Pipeline pipeline = new Pipeline(allTasks);
+        Pipeline pipeline = new Pipeline("Pipeline", allTasks);
         this.printTasksState.accept(pipeline);
 
     }

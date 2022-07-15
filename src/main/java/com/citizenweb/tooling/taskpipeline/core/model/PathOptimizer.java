@@ -1,6 +1,6 @@
-package com.citizenweb.tooling.taskpipeline.model;
+package com.citizenweb.tooling.taskpipeline.core.model;
 
-import com.citizenweb.tooling.taskpipeline.utils.TaskUtils;
+import com.citizenweb.tooling.taskpipeline.core.utils.TaskUtils;
 
 import java.util.*;
 import java.util.stream.Collectors;

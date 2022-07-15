@@ -1,7 +1,7 @@
-package com.citizenweb.tooling.taskpipeline.model;
+package com.citizenweb.tooling.taskpipeline.core.model;
 
-import com.citizenweb.tooling.taskpipeline.utils.ProcessingStatus;
-import com.citizenweb.tooling.taskpipeline.utils.ProcessingType;
+import com.citizenweb.tooling.taskpipeline.core.utils.ProcessingStatus;
+import com.citizenweb.tooling.taskpipeline.core.utils.ProcessingType;
 import lombok.*;
 
 import java.time.Duration;

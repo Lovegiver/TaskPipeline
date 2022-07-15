@@ -1,8 +1,8 @@
 package classes;
 
-import com.citizenweb.tooling.taskpipeline.model.Operation;
-import com.citizenweb.tooling.taskpipeline.model.Pipeline;
-import com.citizenweb.tooling.taskpipeline.model.Task;
+import com.citizenweb.tooling.taskpipeline.core.model.Operation;
+import com.citizenweb.tooling.taskpipeline.core.model.Pipeline;
+import com.citizenweb.tooling.taskpipeline.core.model.Task;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -106,7 +106,7 @@ public class OperationTest {
         Task t5 = new Task("Task 5", operationsMap.get("o4"), List.of(t2, t3));
         Task t6 = new Task("Task 6", operationsMap.get("o4"), List.of(t4, t5));
         Set<Task> allTasks = Set.of(t1, t2, t3, t4, t5, t6);
-        Pipeline pipeline = new Pipeline(allTasks);
+        Pipeline pipeline = new Pipeline("Pipeline", allTasks);
         var resultMap = pipeline.execute();
         resultMap.forEach((key, value) -> value.join());
     }

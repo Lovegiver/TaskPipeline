@@ -1,4 +1,4 @@
-package com.citizenweb.tooling.taskpipeline.utils;
+package com.citizenweb.tooling.taskpipeline.core.utils;
 
 public enum ProcessingStatus {
     NEW,
