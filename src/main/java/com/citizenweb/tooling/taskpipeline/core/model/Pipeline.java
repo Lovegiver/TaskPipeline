@@ -10,7 +10,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 
 /**
  * A {@link Pipeline} contains all the logic needed to consume {@link Task}s in the most efficient way
@@ -29,25 +28,19 @@ public class Pipeline extends Monitorable {
     @Getter
     private Collection<WorkPath> workPaths;
 
-    @Getter
-    private final DataStreamer dataStreamer = DataStreamer.getInstance();
-
-    @Getter
-    private final Consumer<Pipeline> trigger = this.dataStreamer::triggerNotification;
-
     /** Pipeline's execution results in producing {@link CompletableFuture} */
     private final ConcurrentHashMap<String, CompletableFuture<?>> runningWorkPaths = new ConcurrentHashMap<>();
 
     public Pipeline(String name, Set<Task> tasksToProcess) {
         super(new Monitor(ProcessingType.PIPELINE), Objects.requireNonNull(name, "A Pipeline has to be named"));
-        super.setParent(this);
+        super.setNotifier(new StateNotifier(this));
         this.tasks = tasksToProcess;
         this.optimizer = PathOptimizer.DEFAULT_OPTIMIZER;
     }
 
     public Pipeline(String name, Set<Task> tasksToProcess, PathOptimizer optimizer) {
         super(new Monitor(ProcessingType.PIPELINE), Objects.requireNonNull(name, "A Pipeline has to be named"));
-        super.setParent(this);
+        super.setNotifier(new StateNotifier(this));
         this.tasks = tasksToProcess;
         this.optimizer = optimizer;
     }
@@ -57,23 +50,23 @@ public class Pipeline extends Monitorable {
      * in order to complete a 'terminal' (final, ending) {@link Task}
      */
     public Map<String, CompletableFuture<?>> execute() {
-        this.getMonitor().statusToRunning();
+        super.monitor.statusToRunning();
         this.workPaths = this.optimizer.optimize(this.tasks);
         this.propagatePipeline();
-        this.trigger.accept(this);
+        super.notifier.notifyStateChange();
         log.info("Found {} work paths", workPaths.size());
         this.workPaths.parallelStream().forEach(workPath -> {
             CompletableFuture<?> future = workPath.execute();
             runningWorkPaths.put(workPath.getName(), future);
         });
-        this.getMonitor().statusToDone();
-        this.trigger.accept(this);
+        super.getMonitor().statusToDone();
+        super.getNotifier().notifyStateChange();
         return this.runningWorkPaths;
     }
 
     private void propagatePipeline() {
-        this.workPaths.forEach(workPath -> workPath.setParent(this));
-        this.tasks.forEach(task -> task.setParent(this));
+        this.workPaths.forEach(workPath -> workPath.setNotifier(new StateNotifier(this)));
+        this.tasks.forEach(task -> task.setNotifier(new StateNotifier(this)));
     }
 
 }

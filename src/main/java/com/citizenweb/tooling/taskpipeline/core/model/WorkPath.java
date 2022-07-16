@@ -67,7 +67,8 @@ public class WorkPath extends Monitorable {
      */
     public CompletableFuture<?> execute() {
         return CompletableFuture.supplyAsync( () -> {
-            this.monitor.statusToRunning();
+            super.monitor.statusToRunning();
+            super.notifier.notifyStateChange();
             return this.processStartingTasks();
                 })
                 .thenApply(this::processIntermediateTasks)
@@ -75,10 +76,12 @@ public class WorkPath extends Monitorable {
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
                         log.error("Error occurred : " + ex.getCause());
-                        this.monitor.statusToError();
+                        super.monitor.statusToError();
+                        super.notifier.notifyStateChange();
                     } else {
                         log.info("Finished processing 'work path' : " + this);
-                        this.monitor.statusToDone();
+                        super.monitor.statusToDone();
+                        super.notifier.notifyStateChange();
                     }
                 });
     }

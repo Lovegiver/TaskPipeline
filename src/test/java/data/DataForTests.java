@@ -15,7 +15,7 @@ public class DataForTests {
 
     public static void initData() {
         if (data.isEmpty()) {
-            Operation o1 = inputs -> Flux.range(1,10);
+            Operation o1 = inputs -> Flux.interval(Duration.ofSeconds(1)).range(1,10);
             Operation o2 = inputs -> Flux.range(91,10);
             Operation o3 = inputs -> Flux.just(18, 16, 14, 12, 10, 8, 6, 4, 2, 0);
             Operation o4 = inputs -> {
@@ -29,12 +29,12 @@ public class DataForTests {
             Operation o6 = inputs -> {
                 Flux<?> int1 = inputs[0];
                 Flux<?> word1 = inputs[1];
-                return Flux.zip(int1, word1, (i, w) -> String.format("I've just seen %d %s flying ^^", (int) i, w));
+                return Flux.interval(Duration.ofSeconds(1)).zip(int1, word1, (i, w) -> String.format("I've just seen %d %s flying ^^", (int) i, w));
             };
             Operation o7 = inputs -> {
                 Flux<?> int1 = inputs[0];
                 Flux<?> word1 = inputs[1];
-                return Flux.zip(int1, word1, (i, w) -> String.format("I've said [ %s ] around [ %d ] times !!", w, (int) i));
+                return Flux.interval(Duration.ofSeconds(1)).zip(int1, word1, (i, w) -> String.format("I've said [ %s ] around [ %d ] times !!", w, (int) i));
             };
             data.put("Count to 10", o1);
             data.put("Count to 100", o2);

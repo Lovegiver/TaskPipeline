@@ -26,7 +26,7 @@ public class Monitor {
     @Getter @Setter
     private LocalDateTime endTime;
     @Getter @Setter
-    private Duration duration;
+    private long duration;
     /** Locates a task within a work path. Terminal task is rank 1 by default. Other tasks ranks depend
      * on their respective location compared to the terminal task */
     @Getter @Setter
@@ -46,13 +46,13 @@ public class Monitor {
     public void statusToDone() {
         this.status = ProcessingStatus.DONE;
         this.endTime = LocalDateTime.now();
-        this.duration = Duration.between(startTime, endTime);
+        this.duration = Duration.between(startTime, endTime).toMillis();
     }
 
     public void statusToError() {
         this.status = ProcessingStatus.IN_ERROR;
         this.endTime = LocalDateTime.now();
-        this.duration = Duration.between(startTime, endTime);
+        this.duration = Duration.between(startTime, endTime).toMillis();
     }
 
 }

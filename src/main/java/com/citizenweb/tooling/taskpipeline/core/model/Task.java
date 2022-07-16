@@ -92,15 +92,15 @@ public class Task extends Monitorable implements Operation {
     @Override
     public Flux<?> process(Flux<?>... inputs) throws TaskExecutionException {
         try {
-            this.monitor.statusToRunning();
-            this.getParent().getTrigger().accept(this.getParent());
+            super.monitor.statusToRunning();
+            super.notifier.notifyStateChange();
             Flux<?> outputFlux = this.wrappedOperation.process(inputs);
-            this.monitor.statusToDone();
-            this.getParent().getTrigger().accept(this.getParent());
+            super.monitor.statusToDone();
+            super.notifier.notifyStateChange();
             return outputFlux;
         } catch (Exception ex) {
-            this.monitor.statusToError();
-            this.getParent().getTrigger().accept(this.getParent());
+            super.monitor.statusToError();
+            super.notifier.notifyStateChange();
             String taskSignature = String.format("%s / %s", this.getName(), this.monitor.getId());
             throw new TaskExecutionException(getErrorMessage(ex, taskSignature));
         }

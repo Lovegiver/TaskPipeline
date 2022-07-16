@@ -31,10 +31,10 @@ public abstract class Monitorable {
     @Getter @Setter
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private Pipeline parent;
+    protected Notifier notifier;
     /** All the necessary input fluxes are ready to use */
-    public static Predicate<Monitorable> hasAllItsNecessaryInputFluxes = monitorable -> monitorable.getInputFluxesMap().values().stream()
-            .allMatch(Optional::isPresent);
+    public static Predicate<Monitorable> hasAllItsNecessaryInputFluxes = monitorable ->
+            monitorable.getInputFluxesMap().values().stream().allMatch(Optional::isPresent);
 
     protected Monitorable(@NonNull Monitor monitor, @NonNull String name) {
         this.monitor = monitor;

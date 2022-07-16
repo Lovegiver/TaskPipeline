@@ -1,5 +1,6 @@
 package classes;
 
+import com.citizenweb.tooling.taskpipeline.core.model.DataStreamer;
 import com.citizenweb.tooling.taskpipeline.core.model.Operation;
 import com.citizenweb.tooling.taskpipeline.core.model.Pipeline;
 import com.citizenweb.tooling.taskpipeline.core.model.Task;
@@ -28,7 +29,7 @@ public class PipelineTest {
         Set<Task> allTasks = Set.of(t1, t2, t3, t4, t5, t6);
         Pipeline pipeline = new Pipeline("Pipeline", allTasks);
         var resultMap = pipeline.execute();
-        pipeline.getDataStreamer().exportData().subscribe(event -> log.warn(String.valueOf(event)));
+        DataStreamer.getInstance().exportData().subscribe(event -> log.warn(String.valueOf(event)));
         resultMap.forEach((name, future) -> future.join());
         this.printTasksState.accept(pipeline);
     }

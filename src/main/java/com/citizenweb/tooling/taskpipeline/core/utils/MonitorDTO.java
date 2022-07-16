@@ -36,8 +36,7 @@ public class MonitorDTO {
                 monitor.getStartTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "";
         this.endTime = monitor.getEndTime() != null ?
                 monitor.getEndTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "";
-        this.duration = monitor.getDuration() != null ?
-                monitor.getDuration().getSeconds() : 0;
+        this.duration = monitor.getDuration();
         this.rank = monitor.getRank();
 
         if (monitorable instanceof Pipeline) {
