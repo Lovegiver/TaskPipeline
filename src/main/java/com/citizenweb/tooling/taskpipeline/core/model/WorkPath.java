@@ -23,16 +23,19 @@ import java.util.stream.Collectors;
 @Slf4j
 @EqualsAndHashCode(callSuper = true)
 public class WorkPath extends Monitorable {
+    /** Collection of all {@link Task}s belonging to this WorkPath */
     @NonNull
     @Getter
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private final Set<Task> tasks;
+    /** Collection of all INITIAL {@link Task}s : tasks to be processed first */
     @NonNull
     @Getter
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private final Set<Task> startingTasks;
+    /** The TERMINAL {@link Task} */
     @NonNull
     @Getter
     @ToString.Exclude
@@ -145,8 +148,7 @@ public class WorkPath extends Monitorable {
         var tasksToProcess = this.getTasksToProcess();
         if (!CollectionUtils.isEmpty(tasksToProcess)) {
             tasksToProcess.forEach(currentTask -> {
-                Flux<?> flux = currentTask.process(this.removeOptional.andThen(this.convertCollectionToArray)
-                        .apply(currentTask.getInputFluxesMap().values()));
+                Flux<?> flux = currentTask.process(this.getComputedInputFluxes.apply(currentTask));
                 flux.log().subscribe(o -> log.info(String.valueOf(o)));
             });
         }
@@ -161,16 +163,19 @@ public class WorkPath extends Monitorable {
         Flux<?>[] array = new Flux[collection.size()];
         return collection.toArray(array);
     };
-
+    /** If any {@link Optional} of {@link Flux} are present, will convert them into plain {@link Flux} objects */
     Function<Collection<Optional<Flux<?>>>, Collection<Flux<?>>> removeOptional = optionals -> {
         Objects.requireNonNull(optionals, "Collection is NULL thus Optional can't be removed");
         Collection<Flux<?>> fluxes = new ArrayList<>(optionals.size());
         optionals.forEach(optional -> fluxes.add(optional.orElseThrow()));
         return fluxes;
     };
+    /** {@link Function} composition */
+    Function<Task, Flux<?>[]> getComputedInputFluxes = task -> this.removeOptional.andThen(this.convertCollectionToArray)
+            .apply(task.getInputFluxesMap().values());
 
     /**
-     * Each time a {@link Flux} is produced, we have to inject it as an input of the next {@link Task}.<br>
+     * Each time a {@link Flux} is produced, we have to inject it as an input for the next {@link Task}.<br>
      */
     public void injectFlux(Task producer, Task consumer, Flux<?> flux) {
         consumer.injectFluxFromTask.accept(producer, flux);

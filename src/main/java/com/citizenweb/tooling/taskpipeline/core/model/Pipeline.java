@@ -22,7 +22,10 @@ public class Pipeline extends Monitorable {
     @Getter
     private final Set<Task> tasks;
 
-    /** The {@link PathOptimizer} will organize all {@link Task}s into {@link WorkPath} */
+    /**
+     * The {@link PathOptimizer} will organize all {@link Task}s into {@link WorkPath}.<br>
+     * It is possible to define a custom optimizer and inject it into the {@link Pipeline} with constructor.
+     */
     private final PathOptimizer optimizer;
 
     @Getter
@@ -64,6 +67,12 @@ public class Pipeline extends Monitorable {
         return this.runningWorkPaths;
     }
 
+    /**
+     * Once the Pipeline is instantiated, it will compute possible {@link WorkPath}s thanks to its {@link PathOptimizer}.<br>
+     * Then, all objects are known : the pipeline, its workpaths and all tasks within each workpath.
+     * Each workpath and task must know about their wrapping pipeline in order to trigger state export thanks to
+     * their {@link Notifier}.
+     */
     private void propagatePipeline() {
         this.workPaths.forEach(workPath -> workPath.setNotifier(new StateNotifier(this)));
         this.tasks.forEach(task -> task.setNotifier(new StateNotifier(this)));

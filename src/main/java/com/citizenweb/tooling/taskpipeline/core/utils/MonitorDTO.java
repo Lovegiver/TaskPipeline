@@ -13,6 +13,16 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * This <b>DTO</b> contains a whole {@link Pipeline} state data.<br>
+ * Like a <b>composite</b> object, the MonitorDTO contains the pipeline's {@link Monitor} state but also
+ * all other {@link Monitorable} it contains.<br>
+ * <ul>
+ *     <li>Pipeline contains a collection of {@link WorkPath}s</li>
+ *     <li>Each {@link WorkPath} contains a collection of {@link com.citizenweb.tooling.taskpipeline.core.model.Task}s</li>
+ * </ul>
+ * A MonitorDTO contains all fields from the Monitor plus a collection of MonitorDTO.
+ */
 @Data
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class MonitorDTO {
@@ -38,7 +48,7 @@ public class MonitorDTO {
                 monitor.getEndTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "";
         this.duration = monitor.getDuration();
         this.rank = monitor.getRank();
-
+        /* Here, we're building the Set<MonitorDTO>  monitorables in a recursive way */
         if (monitorable instanceof Pipeline) {
             var paths = ((Pipeline) monitorable).getWorkPaths();
             if (!CollectionUtils.isEmpty(paths)) {
