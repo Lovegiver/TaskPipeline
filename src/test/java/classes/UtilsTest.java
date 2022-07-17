@@ -3,7 +3,7 @@ package classes;
 import com.citizenweb.tooling.taskpipeline.core.model.Operation;
 import com.citizenweb.tooling.taskpipeline.core.model.Pipeline;
 import com.citizenweb.tooling.taskpipeline.core.model.Task;
-import com.citizenweb.tooling.taskpipeline.core.model.WorkPath;
+import com.citizenweb.tooling.taskpipeline.core.model.WorkGroup;
 import com.citizenweb.tooling.taskpipeline.core.utils.TaskUtils;
 import data.DataForTests;
 import lombok.extern.slf4j.Slf4j;
@@ -33,16 +33,16 @@ public class UtilsTest {
         Task t9 = new Task("Top task", operationsMap.get("Top task"), List.of(t6, t8));
         Set<Task> allTasks = Set.of(t1, t2, t3, t4, t5, t6, t7, t8, t9);
 
-        List<WorkPath> workPaths = new ArrayList<>();
+        List<WorkGroup> workGroups = new ArrayList<>();
         Set<Task> terminalTasks = allTasks.stream().filter(Task.isTerminalTask).collect(Collectors.toSet());
         Assertions.assertEquals(1, terminalTasks.size());
 
         for (Task task : terminalTasks) {
             Set<Task> pathForTask = new HashSet<>();
-            TaskUtils.buildPathFromTerminalToInitial(pathForTask, task, 0);
-            workPaths.add(new WorkPath(pathForTask));
+            TaskUtils.buildWorkGroupFromTerminalToInitial(pathForTask, task, 0);
+            workGroups.add(new WorkGroup(pathForTask));
         }
-        Assertions.assertEquals(1, workPaths.size());
+        Assertions.assertEquals(1, workGroups.size());
 
         Pipeline pipeline = new Pipeline("Pipeline", allTasks);
         this.printTasksState.accept(pipeline);

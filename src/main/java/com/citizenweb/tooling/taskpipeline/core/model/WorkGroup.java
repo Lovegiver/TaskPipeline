@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @EqualsAndHashCode(callSuper = true)
-public class WorkPath extends Monitorable {
+public class WorkGroup extends Monitorable {
     /** Collection of all {@link Task}s belonging to this WorkPath */
     @NonNull
     @Getter
@@ -52,8 +52,8 @@ public class WorkPath extends Monitorable {
     /** Dedicated {@link Scheduler} */
     private final Scheduler scheduler = Schedulers.parallel();
 
-    public WorkPath(Set<Task> taskToProcess) {
-        super(new Monitor(ProcessingType.WORKPATH),
+    public WorkGroup(Set<Task> taskToProcess) {
+        super(new Monitor(ProcessingType.WORKGROUP),
                 taskToProcess.stream().map(Task::getName).collect(Collectors.joining(",")));
         this.tasks = taskToProcess;
         this.startingTasks = taskToProcess.stream().filter(Task.isInitialTask).collect(Collectors.toSet());
@@ -94,9 +94,9 @@ public class WorkPath extends Monitorable {
      * These {@link Task}s are specific because they do not need any input {@link Flux}.<br>
      * They all will be consumed by the following {@link Task}s.<br>
      *
-     * @return a {@link WorkPath}
+     * @return a {@link WorkGroup}
      */
-    private WorkPath processStartingTasks() {
+    private WorkGroup processStartingTasks() {
         log.info("Processing {} 'starting' tasks", this.getStartingTasks().size());
         this.getStartingTasks().forEach(currentTask -> {
             Flux<?> flux = currentTask.process(Flux.empty()).publishOn(this.scheduler);
@@ -113,9 +113,9 @@ public class WorkPath extends Monitorable {
      * IntermediateTasks have predecessors and successors.<br>
      * They all will be consumed, layer after layer, until we reach the terminal {@link Task}s.<br>
      *
-     * @param workPath this object, a wrapper for all tasks dedicated to one single 'final' {@link Task}
+     * @param workGroup this object, a wrapper for all tasks dedicated to one single 'final' {@link Task}
      */
-    private WorkPath processIntermediateTasks(WorkPath workPath) {
+    private WorkGroup processIntermediateTasks(WorkGroup workGroup) {
         log.info("Processing {} 'intermediate' tasks", this.getTasksToProcess().size());
         /* For the sake of readability */
         var tasksToProcess = this.getTasksToProcess();
@@ -142,7 +142,7 @@ public class WorkPath extends Monitorable {
     /**
      * FinalTasks (or TerminalTasks) are the {@link Task}s we want to compute the resulting {@link Flux}.<br>
      */
-    private WorkPath processFinalTasks(WorkPath workPath) {
+    private WorkGroup processFinalTasks(WorkGroup workGroup) {
         log.info("Processing 'terminal' task {}", this.getEndingTask().getName());
         /* For the sake of readability */
         var tasksToProcess = this.getTasksToProcess();
@@ -183,7 +183,7 @@ public class WorkPath extends Monitorable {
     }
 
     /**
-     * Check the content of the {@link WorkPath#tasksToProcess} collection.<br>
+     * Check the content of the {@link WorkGroup#tasksToProcess} collection.<br>
      * @return TRUE if only the terminal {@link Task} remains to be processed
      */
     public boolean onlyEndingTaskRemains() {
@@ -191,9 +191,9 @@ public class WorkPath extends Monitorable {
     }
 
     /**
-     * A {@link Task} may produce a {@link Flux} needed by other tasks not belonging to the same {@link WorkPath}.<br>
-     * @param task we want to know if this {@link Task} belongs to this {@link WorkPath}
-     * @return TRUE if the {@link Task} is part of this {@link WorkPath}
+     * A {@link Task} may produce a {@link Flux} needed by other tasks not belonging to the same {@link WorkGroup}.<br>
+     * @param task we want to know if this {@link Task} belongs to this {@link WorkGroup}
+     * @return TRUE if the {@link Task} is part of this {@link WorkGroup}
      */
     public boolean taskBelongsToWorkPath(Task task) {
         return this.tasks.contains(task);

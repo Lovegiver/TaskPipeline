@@ -78,6 +78,12 @@ public class Task extends Monitorable implements Operation {
                 "A Task should wrap an Operation, but Operation is missing");
         this.predecessors = new LinkedHashSet<>(Objects.requireNonNull(predecessors,
                 "Null is not an acceptable value. Consider using an empty collection."));
+        /*
+         * We organize tasks.
+         * If this one has 'predecessors', then we declare it as their successor.
+         * We also prepare the 'inputFluxesMap' by setting - in the right order - their respective result as an Optional.
+         * When a predecessor is executed, its result is stored in this Map as an Optional.of(Flux)
+         */
         this.predecessors.forEach(p -> {
             p.getSuccessors().add(this);
             this.inputFluxesMap.put(p, Optional.empty());

@@ -1,6 +1,6 @@
 package com.citizenweb.tooling.taskpipeline.core.model;
 
-import com.citizenweb.tooling.taskpipeline.core.utils.MonitorDTO;
+import com.citizenweb.tooling.taskpipeline.core.utils.PipelineDTO;
 import com.citizenweb.tooling.taskpipeline.core.utils.ServerSentEventCounter;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -28,13 +28,16 @@ import java.util.function.Function;
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class DataStreamer {
 
-    private final ConcurrentHashMap<Pipeline, List<ServerSentEvent<String>>> eventQueue = new ConcurrentHashMap<>();
-
+    /** A {@link ServerSentEvent} has to be named */
+    private final String SSE_EVENT_NAME = "Pipeline";
+    /** For each {@link Pipeline} we store a collection of {@link ServerSentEvent}s */
+    private final ConcurrentHashMap<Pipeline, List<ServerSentEvent<String>>> notificationsMap = new ConcurrentHashMap<>();
+    /** Stores the unique instance of {@link DataStreamer} */
     private static final DataStreamer DATA_STREAMER = new DataStreamer();
-
-    private final Function<Pipeline, MonitorDTO> convertToDTO = MonitorDTO::new;
-
-    private final Function<MonitorDTO,ServerSentEvent<String>> convertToSSE = dto -> {
+    /** Converts a {@link Pipeline} into a {@link PipelineDTO} */
+    private final Function<Pipeline, PipelineDTO> convertToDTO = PipelineDTO::new;
+    /** Converts a {@link PipelineDTO} into a {@link ServerSentEvent} */
+    private final Function<PipelineDTO,ServerSentEvent<String>> convertToSSE = dto -> {
         ObjectWriter ow = new ObjectMapper().writer().withDefaultPrettyPrinter();
         String json;
         try {
@@ -44,40 +47,46 @@ public class DataStreamer {
         }
         return ServerSentEvent.<String>builder()
                 .id(String.valueOf(ServerSentEventCounter.getEventID()))
-                .event("Chrono")
+                .event(SSE_EVENT_NAME)
                 .retry(Duration.of(1, ChronoUnit.SECONDS))
                 .data(json)
                 .build();
     };
 
+    /** Returns the sole instance of {@link DataStreamer} */
     public static DataStreamer getInstance() {
         return DATA_STREAMER;
     }
 
+    /** Creates a {@link Flux} based on the Map's content */
     public Flux<ServerSentEvent<String>> exportData() {
-        log.info("In Exporter -> Queue size = " + eventQueue.size());
-        return Flux.create(sse -> eventQueue.values().stream().flatMap(Collection::stream).forEach(sse::next));
+        log.info("In Exporter -> Queue size = " + notificationsMap.size());
+        return Flux.create(sse -> notificationsMap.values().stream()
+                .flatMap(Collection::stream)
+                .forEach(sse::next));
     }
 
+    /** Creates a {@link Flux} based on Map's content for a given {@link Pipeline} */
     public Flux<ServerSentEvent<String>> exportData(Pipeline pipeline) {
-        log.info("In Exporter -> Queue size = " + eventQueue.size());
-        return Flux.create(sse -> eventQueue.entrySet().stream()
+        log.info("In Exporter -> Queue size = " + notificationsMap.size());
+        return Flux.create(sse -> notificationsMap.entrySet().stream()
                 .filter(entry -> pipeline == entry.getKey())
                 .map(Map.Entry::getValue)
                 .flatMap(Collection::stream)
                 .forEach(sse::next));
     }
 
-    public void triggerNotification(Pipeline pipeline) {
+    /** Calling this method will snapshot the state of the given {@link Pipeline} */
+    public synchronized void triggerNotification(Pipeline pipeline) {
         log.info("In Consumer -> Pipeline = " + pipeline);
         List<ServerSentEvent<String>> serverSentEvents;
-        if (eventQueue.get(pipeline) == null) {
+        if (notificationsMap.get(pipeline) == null) {
             serverSentEvents = new ArrayList<>();
         } else {
-            serverSentEvents = eventQueue.get(pipeline);
+            serverSentEvents = notificationsMap.get(pipeline);
         }
         serverSentEvents.add(convertToDTO.andThen(convertToSSE).apply(pipeline));
-        this.eventQueue.put(pipeline, serverSentEvents);
+        this.notificationsMap.put(pipeline, serverSentEvents);
     }
 
 }

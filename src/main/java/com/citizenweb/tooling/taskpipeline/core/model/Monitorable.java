@@ -9,6 +9,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
 
+/**
+ * A {@link Monitorable} contains a {@link Monitor} field through which we can monitor
+ * the object's state.<br>
+ * {@link Pipeline}, {@link WorkGroup} and {@link Task} are monitorable objects.
+ */
 public abstract class Monitorable {
 
     /** Monitors life cycle */
@@ -27,7 +32,7 @@ public abstract class Monitorable {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     protected final Map<Task, Optional<Flux<?>>> inputFluxesMap = Collections.synchronizedMap(new LinkedHashMap<>());
-
+    /** The {@link Notifier} will be used each time the object's state changes */
     @Getter @Setter
     @ToString.Exclude
     @EqualsAndHashCode.Exclude

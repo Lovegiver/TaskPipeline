@@ -23,13 +23,13 @@ public class Pipeline extends Monitorable {
     private final Set<Task> tasks;
 
     /**
-     * The {@link PathOptimizer} will organize all {@link Task}s into {@link WorkPath}.<br>
+     * The {@link WorkGroupOptimizer} will organize all {@link Task}s into {@link WorkGroup}.<br>
      * It is possible to define a custom optimizer and inject it into the {@link Pipeline} with constructor.
      */
-    private final PathOptimizer optimizer;
+    private final WorkGroupOptimizer optimizer;
 
     @Getter
-    private Collection<WorkPath> workPaths;
+    private Collection<WorkGroup> workGroups;
 
     /** Pipeline's execution results in producing {@link CompletableFuture} */
     private final ConcurrentHashMap<String, CompletableFuture<?>> runningWorkPaths = new ConcurrentHashMap<>();
@@ -38,10 +38,10 @@ public class Pipeline extends Monitorable {
         super(new Monitor(ProcessingType.PIPELINE), Objects.requireNonNull(name, "A Pipeline has to be named"));
         super.setNotifier(new StateNotifier(this));
         this.tasks = tasksToProcess;
-        this.optimizer = PathOptimizer.DEFAULT_OPTIMIZER;
+        this.optimizer = WorkGroupOptimizer.DEFAULT_OPTIMIZER;
     }
 
-    public Pipeline(String name, Set<Task> tasksToProcess, PathOptimizer optimizer) {
+    public Pipeline(String name, Set<Task> tasksToProcess, WorkGroupOptimizer optimizer) {
         super(new Monitor(ProcessingType.PIPELINE), Objects.requireNonNull(name, "A Pipeline has to be named"));
         super.setNotifier(new StateNotifier(this));
         this.tasks = tasksToProcess;
@@ -54,11 +54,11 @@ public class Pipeline extends Monitorable {
      */
     public Map<String, CompletableFuture<?>> execute() {
         super.monitor.statusToRunning();
-        this.workPaths = this.optimizer.optimize(this.tasks);
+        this.workGroups = this.optimizer.optimize(this.tasks);
         this.propagatePipeline();
         super.notifier.notifyStateChange();
-        log.info("Found {} work paths", workPaths.size());
-        this.workPaths.parallelStream().forEach(workPath -> {
+        log.info("Found {} work paths", workGroups.size());
+        this.workGroups.parallelStream().forEach(workPath -> {
             CompletableFuture<?> future = workPath.execute();
             runningWorkPaths.put(workPath.getName(), future);
         });
@@ -68,13 +68,13 @@ public class Pipeline extends Monitorable {
     }
 
     /**
-     * Once the Pipeline is instantiated, it will compute possible {@link WorkPath}s thanks to its {@link PathOptimizer}.<br>
-     * Then, all objects are known : the pipeline, its workpaths and all tasks within each workpath.
-     * Each workpath and task must know about their wrapping pipeline in order to trigger state export thanks to
+     * Once the Pipeline is instantiated, it will compute possible {@link WorkGroup}s thanks to its {@link WorkGroupOptimizer}.<br>
+     * Then, all objects are known : the pipeline, its WorkGroups and all tasks within each WorkGroup.
+     * Each WorkGroup and task must know about their wrapping pipeline in order to trigger state export thanks to
      * their {@link Notifier}.
      */
     private void propagatePipeline() {
-        this.workPaths.forEach(workPath -> workPath.setNotifier(new StateNotifier(this)));
+        this.workGroups.forEach(workPath -> workPath.setNotifier(new StateNotifier(this)));
         this.tasks.forEach(task -> task.setNotifier(new StateNotifier(this)));
     }
 

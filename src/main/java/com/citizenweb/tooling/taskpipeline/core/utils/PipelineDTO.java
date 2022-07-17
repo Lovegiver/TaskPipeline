@@ -3,7 +3,7 @@ package com.citizenweb.tooling.taskpipeline.core.utils;
 import com.citizenweb.tooling.taskpipeline.core.model.Monitor;
 import com.citizenweb.tooling.taskpipeline.core.model.Monitorable;
 import com.citizenweb.tooling.taskpipeline.core.model.Pipeline;
-import com.citizenweb.tooling.taskpipeline.core.model.WorkPath;
+import com.citizenweb.tooling.taskpipeline.core.model.WorkGroup;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.springframework.util.CollectionUtils;
@@ -15,17 +15,17 @@ import java.util.stream.Collectors;
 
 /**
  * This <b>DTO</b> contains a whole {@link Pipeline} state data.<br>
- * Like a <b>composite</b> object, the MonitorDTO contains the pipeline's {@link Monitor} state but also
+ * Like a <b>composite</b> object, the PipelineDTO contains the pipeline's {@link Monitor} state but also
  * all other {@link Monitorable} it contains.<br>
  * <ul>
- *     <li>Pipeline contains a collection of {@link WorkPath}s</li>
- *     <li>Each {@link WorkPath} contains a collection of {@link com.citizenweb.tooling.taskpipeline.core.model.Task}s</li>
+ *     <li>Pipeline contains a collection of {@link WorkGroup}s</li>
+ *     <li>Each {@link WorkGroup} contains a collection of {@link com.citizenweb.tooling.taskpipeline.core.model.Task}s</li>
  * </ul>
- * A MonitorDTO contains all fields from the Monitor plus a collection of MonitorDTO.
+ * A PipelineDTO contains all fields from the Monitor plus a collection of MonitorDTO.
  */
 @Data
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class MonitorDTO {
+public class PipelineDTO {
     @EqualsAndHashCode.Include
     private final String id;
     private final String processingType;
@@ -34,10 +34,10 @@ public class MonitorDTO {
     private final String endTime;
     private final long duration;
     private final int rank;
-    private final Set<MonitorDTO>  monitorables;
+    private final Set<PipelineDTO>  monitorables;
 
-    public MonitorDTO(Monitorable monitorable) {
-        Set<MonitorDTO> components = Collections.emptySet();
+    public PipelineDTO(Monitorable monitorable) {
+        Set<PipelineDTO> components = Collections.emptySet();
         Monitor monitor = monitorable.getMonitor();
         this.id = monitor.getId();
         this.processingType = monitor.getType().name();
@@ -50,18 +50,18 @@ public class MonitorDTO {
         this.rank = monitor.getRank();
         /* Here, we're building the Set<MonitorDTO>  monitorables in a recursive way */
         if (monitorable instanceof Pipeline) {
-            var paths = ((Pipeline) monitorable).getWorkPaths();
+            var paths = ((Pipeline) monitorable).getWorkGroups();
             if (!CollectionUtils.isEmpty(paths)) {
-                components = ((Pipeline) monitorable).getWorkPaths().stream()
-                        .map(MonitorDTO::new)
+                components = ((Pipeline) monitorable).getWorkGroups().stream()
+                        .map(PipelineDTO::new)
                         .collect(Collectors.toSet());
             }
         }
-        if (monitorable instanceof WorkPath) {
-            var tasks = ((WorkPath) monitorable).getTasks();
+        if (monitorable instanceof WorkGroup) {
+            var tasks = ((WorkGroup) monitorable).getTasks();
             if (!CollectionUtils.isEmpty(tasks)) {
-                components = ((WorkPath) monitorable).getTasks().stream()
-                        .map(MonitorDTO::new)
+                components = ((WorkGroup) monitorable).getTasks().stream()
+                        .map(PipelineDTO::new)
                         .collect(Collectors.toSet());
             }
         }
