@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @EqualsAndHashCode(callSuper = true)
 public class WorkGroup extends Monitorable {
-    /** Collection of all {@link Task}s belonging to this WorkPath */
+    /** Collection of all {@link Task}s belonging to this WorkGroup */
     @NonNull
     @Getter
     @ToString.Exclude
@@ -102,7 +102,7 @@ public class WorkGroup extends Monitorable {
             Flux<?> flux = currentTask.process(Flux.empty()).publishOn(this.scheduler);
             currentTask.getSuccessors()
                     .stream()
-                    .filter(this::taskBelongsToWorkPath)
+                    .filter(this::taskBelongsToWorkGroup)
                     .forEach(nextTask -> this.injectFlux(currentTask, nextTask, flux));
         });
         log.info("Done");
@@ -195,7 +195,7 @@ public class WorkGroup extends Monitorable {
      * @param task we want to know if this {@link Task} belongs to this {@link WorkGroup}
      * @return TRUE if the {@link Task} is part of this {@link WorkGroup}
      */
-    public boolean taskBelongsToWorkPath(Task task) {
+    public boolean taskBelongsToWorkGroup(Task task) {
         return this.tasks.contains(task);
     }
 

@@ -19,7 +19,7 @@ public class PipelineTest {
     private static final Map<String, Operation> operationsMap = DataForTests.getData();
 
     @Test
-    void pipelineOfTwoWorkPaths_1() {
+    void pipelineOfTwoWorkGroups_1() {
         Task t1 = new Task("Count to 10", operationsMap.get("Count to 10"), Collections.emptyList());
         Task t2 = new Task("Count to 100", operationsMap.get("Count to 100"), Collections.emptyList());
         Task t3 = new Task("Reverse count to 0", operationsMap.get("Reverse count to 0"), Collections.emptyList());
@@ -35,7 +35,7 @@ public class PipelineTest {
     }
 
     @Test
-    void pipelineOfTwoWorkPaths_2() {
+    void pipelineOfTwoWorkGroups_2() {
         Task t3 = new Task("Reverse count to 0", operationsMap.get("Reverse count to 0"), Collections.emptyList());
         Task t7 = new Task("Send word", operationsMap.get("Send word"), Collections.emptyList());
         Task t8 = new Task("Create sentence", operationsMap.get("Create sentence"), List.of(t3, t7));
@@ -47,7 +47,7 @@ public class PipelineTest {
     }
 
     @Test
-    void pipelineOfTwoWorkPaths_DEFAULT_OPTIMIZER() {
+    void pipelineOfTwoWorkGroups_DEFAULT_OPTIMIZER() {
         Task t1 = new Task("Count to 10", operationsMap.get("Count to 10"), Collections.emptyList());
         Task t2 = new Task("Count to 100", operationsMap.get("Count to 100"), Collections.emptyList());
         Task t3 = new Task("Reverse count to 0", operationsMap.get("Reverse count to 0"), Collections.emptyList());

@@ -32,7 +32,7 @@ public class Pipeline extends Monitorable {
     private Collection<WorkGroup> workGroups;
 
     /** Pipeline's execution results in producing {@link CompletableFuture} */
-    private final ConcurrentHashMap<String, CompletableFuture<?>> runningWorkPaths = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, CompletableFuture<?>> runningWorkGroups = new ConcurrentHashMap<>();
 
     public Pipeline(String name, Set<Task> tasksToProcess) {
         super(new Monitor(ProcessingType.PIPELINE), Objects.requireNonNull(name, "A Pipeline has to be named"));
@@ -58,13 +58,13 @@ public class Pipeline extends Monitorable {
         this.propagatePipeline();
         super.notifier.notifyStateChange();
         log.info("Found {} work paths", workGroups.size());
-        this.workGroups.parallelStream().forEach(workPath -> {
-            CompletableFuture<?> future = workPath.execute();
-            runningWorkPaths.put(workPath.getName(), future);
+        this.workGroups.parallelStream().forEach(workGroup -> {
+            CompletableFuture<?> future = workGroup.execute();
+            runningWorkGroups.put(workGroup.getName(), future);
         });
         super.getMonitor().statusToDone();
         super.getNotifier().notifyStateChange();
-        return this.runningWorkPaths;
+        return this.runningWorkGroups;
     }
 
     /**
@@ -74,7 +74,7 @@ public class Pipeline extends Monitorable {
      * their {@link Notifier}.
      */
     private void propagatePipeline() {
-        this.workGroups.forEach(workPath -> workPath.setNotifier(new StateNotifier(this)));
+        this.workGroups.forEach(workGroup -> workGroup.setNotifier(new StateNotifier(this)));
         this.tasks.forEach(task -> task.setNotifier(new StateNotifier(this)));
     }
 
