@@ -1,12 +1,14 @@
-package com.citizenweb.tooling.taskpipeline.model;
+package com.citizenweb.tooling.taskpipeline.core.model;
 
-import com.citizenweb.tooling.taskpipeline.utils.ProcessingType;
+import com.citizenweb.tooling.taskpipeline.core.utils.ProcessingType;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.CollectionUtils;
 import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 import java.util.*;
@@ -20,17 +22,20 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @EqualsAndHashCode(callSuper = true)
-public class WorkPath extends Wrapper {
+public class WorkGroup extends Monitorable {
+    /** Collection of all {@link Task}s belonging to this WorkGroup */
     @NonNull
     @Getter
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private final Set<Task> tasks;
+    /** Collection of all INITIAL {@link Task}s : tasks to be processed first */
     @NonNull
     @Getter
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private final Set<Task> startingTasks;
+    /** The TERMINAL {@link Task} */
     @NonNull
     @Getter
     @ToString.Exclude
@@ -44,9 +49,11 @@ public class WorkPath extends Wrapper {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private final Set<Task> tasksToProcess = ConcurrentHashMap.newKeySet();
+    /** Dedicated {@link Scheduler} */
+    private final Scheduler scheduler = Schedulers.parallel();
 
-    public WorkPath(Set<Task> taskToProcess) {
-        super(new Monitor(ProcessingType.WORKPATH),
+    public WorkGroup(Set<Task> taskToProcess) {
+        super(new Monitor(ProcessingType.WORKGROUP),
                 taskToProcess.stream().map(Task::getName).collect(Collectors.joining(",")));
         this.tasks = taskToProcess;
         this.startingTasks = taskToProcess.stream().filter(Task.isInitialTask).collect(Collectors.toSet());
@@ -62,14 +69,22 @@ public class WorkPath extends Wrapper {
      * </ol>
      */
     public CompletableFuture<?> execute() {
-        return CompletableFuture.supplyAsync(this::processStartingTasks)
+        return CompletableFuture.supplyAsync( () -> {
+            super.monitor.statusToRunning();
+            super.notifier.notifyStateChange();
+            return this.processStartingTasks();
+                })
                 .thenApply(this::processIntermediateTasks)
                 .thenApply(this::processFinalTasks)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
                         log.error("Error occurred : " + ex.getCause());
+                        super.monitor.statusToError();
+                        super.notifier.notifyStateChange();
                     } else {
-                        log.info("Finished processing 'work path' : " + this.getName());
+                        log.info("Finished processing 'work path' : " + this);
+                        super.monitor.statusToDone();
+                        super.notifier.notifyStateChange();
                     }
                 });
     }
@@ -79,15 +94,15 @@ public class WorkPath extends Wrapper {
      * These {@link Task}s are specific because they do not need any input {@link Flux}.<br>
      * They all will be consumed by the following {@link Task}s.<br>
      *
-     * @return a {@link WorkPath}
+     * @return a {@link WorkGroup}
      */
-    private WorkPath processStartingTasks() {
+    private WorkGroup processStartingTasks() {
         log.info("Processing {} 'starting' tasks", this.getStartingTasks().size());
         this.getStartingTasks().forEach(currentTask -> {
-            Flux<?> flux = currentTask.process(Flux.empty()).publishOn(Schedulers.boundedElastic());
+            Flux<?> flux = currentTask.process(Flux.empty()).publishOn(this.scheduler);
             currentTask.getSuccessors()
                     .stream()
-                    .filter(this::taskBelongsToWorkPath)
+                    .filter(this::taskBelongsToWorkGroup)
                     .forEach(nextTask -> this.injectFlux(currentTask, nextTask, flux));
         });
         log.info("Done");
@@ -98,25 +113,27 @@ public class WorkPath extends Wrapper {
      * IntermediateTasks have predecessors and successors.<br>
      * They all will be consumed, layer after layer, until we reach the terminal {@link Task}s.<br>
      *
-     * @param workPath this object, a wrapper for all tasks dedicated to one single 'final' {@link Task}
+     * @param workGroup this object, a wrapper for all tasks dedicated to one single 'final' {@link Task}
      */
-    private WorkPath processIntermediateTasks(WorkPath workPath) {
+    private WorkGroup processIntermediateTasks(WorkGroup workGroup) {
         log.info("Processing {} 'intermediate' tasks", this.getTasksToProcess().size());
         /* For the sake of readability */
         var tasksToProcess = this.getTasksToProcess();
-        Set<Task> tasksToRemoveFromMap = new HashSet<>();
-        while (!this.onlyEndingTaskRemains()) {
-            tasksToProcess.stream()
-                    .filter(Task.isTerminalTask.negate())
-                    .filter(Task.hasAllItsNecessaryInputFluxes)
-                    .forEach(currentTask -> {
-                        Flux<?> flux = currentTask.process(this.removeOptional.andThen(this.convertCollectionToArray)
-                                .apply(currentTask.getInputFluxesMap().values())).publishOn(Schedulers.boundedElastic());
-                        currentTask.getSuccessors().forEach(nextTask -> this.injectFlux(currentTask, nextTask, flux));
-                        tasksToRemoveFromMap.add(currentTask);
-                    });
-            tasksToRemoveFromMap.forEach(tasksToProcess::remove);
-            tasksToRemoveFromMap.clear();
+        if (!CollectionUtils.isEmpty(tasksToProcess)) {
+            Set<Task> tasksToRemoveFromMap = new HashSet<>();
+            while (!this.onlyEndingTaskRemains()) {
+                tasksToProcess.stream()
+                        .filter(Task.isTerminalTask.negate())
+                        .filter(hasAllItsNecessaryInputFluxes)
+                        .forEach(currentTask -> {
+                            Flux<?> flux = currentTask.process(this.removeOptional.andThen(this.convertCollectionToArray)
+                                    .apply(currentTask.getInputFluxesMap().values())).publishOn(this.scheduler);
+                            currentTask.getSuccessors().forEach(nextTask -> this.injectFlux(currentTask, nextTask, flux));
+                            tasksToRemoveFromMap.add(currentTask);
+                        });
+                tasksToRemoveFromMap.forEach(tasksToProcess::remove);
+                tasksToRemoveFromMap.clear();
+            }
         }
         log.info("Done");
         return this;
@@ -125,13 +142,16 @@ public class WorkPath extends Wrapper {
     /**
      * FinalTasks (or TerminalTasks) are the {@link Task}s we want to compute the resulting {@link Flux}.<br>
      */
-    private WorkPath processFinalTasks(WorkPath workPath) {
+    private WorkGroup processFinalTasks(WorkGroup workGroup) {
         log.info("Processing 'terminal' task {}", this.getEndingTask().getName());
-        this.getTasksToProcess().forEach(currentTask -> {
-            Flux<?> flux = currentTask.process(this.removeOptional.andThen(this.convertCollectionToArray)
-                    .apply(currentTask.getInputFluxesMap().values()));
-            flux.log().subscribe(o -> log.info(String.valueOf(o)));
-        });
+        /* For the sake of readability */
+        var tasksToProcess = this.getTasksToProcess();
+        if (!CollectionUtils.isEmpty(tasksToProcess)) {
+            tasksToProcess.forEach(currentTask -> {
+                Flux<?> flux = currentTask.process(this.getComputedInputFluxes.apply(currentTask));
+                flux.log().subscribe(o -> log.info(String.valueOf(o)));
+            });
+        }
         log.info("Done");
         return this;
     }
@@ -143,16 +163,19 @@ public class WorkPath extends Wrapper {
         Flux<?>[] array = new Flux[collection.size()];
         return collection.toArray(array);
     };
-
+    /** If any {@link Optional} of {@link Flux} are present, will convert them into plain {@link Flux} objects */
     Function<Collection<Optional<Flux<?>>>, Collection<Flux<?>>> removeOptional = optionals -> {
         Objects.requireNonNull(optionals, "Collection is NULL thus Optional can't be removed");
         Collection<Flux<?>> fluxes = new ArrayList<>(optionals.size());
         optionals.forEach(optional -> fluxes.add(optional.orElseThrow()));
         return fluxes;
     };
+    /** {@link Function} composition */
+    Function<Task, Flux<?>[]> getComputedInputFluxes = task -> this.removeOptional.andThen(this.convertCollectionToArray)
+            .apply(task.getInputFluxesMap().values());
 
     /**
-     * Each time a {@link Flux} is produced, we have to inject it as an input of the next {@link Task}.<br>
+     * Each time a {@link Flux} is produced, we have to inject it as an input for the next {@link Task}.<br>
      */
     public void injectFlux(Task producer, Task consumer, Flux<?> flux) {
         consumer.injectFluxFromTask.accept(producer, flux);
@@ -160,7 +183,7 @@ public class WorkPath extends Wrapper {
     }
 
     /**
-     * Check the content of the {@link WorkPath#tasksToProcess} collection.<br>
+     * Check the content of the {@link WorkGroup#tasksToProcess} collection.<br>
      * @return TRUE if only the terminal {@link Task} remains to be processed
      */
     public boolean onlyEndingTaskRemains() {
@@ -168,11 +191,11 @@ public class WorkPath extends Wrapper {
     }
 
     /**
-     * A {@link Task} may produce a {@link Flux} needed by other tasks not belonging to the same {@link WorkPath}.<br>
-     * @param task we want to know if this {@link Task} belongs to this {@link WorkPath}
-     * @return TRUE if the {@link Task} is part of this {@link WorkPath}
+     * A {@link Task} may produce a {@link Flux} needed by other tasks not belonging to the same {@link WorkGroup}.<br>
+     * @param task we want to know if this {@link Task} belongs to this {@link WorkGroup}
+     * @return TRUE if the {@link Task} is part of this {@link WorkGroup}
      */
-    public boolean taskBelongsToWorkPath(Task task) {
+    public boolean taskBelongsToWorkGroup(Task task) {
         return this.tasks.contains(task);
     }
 
