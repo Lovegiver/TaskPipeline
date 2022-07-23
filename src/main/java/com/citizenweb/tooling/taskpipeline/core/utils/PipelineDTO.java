@@ -50,9 +50,9 @@ public class PipelineDTO {
         this.rank = monitor.getRank();
         /* Here, we're building the Set<MonitorDTO>  monitorables in a recursive way */
         if (monitorable instanceof Pipeline) {
-            var paths = ((Pipeline) monitorable).getWorkGroups();
-            if (!CollectionUtils.isEmpty(paths)) {
-                components = ((Pipeline) monitorable).getWorkGroups().stream()
+            var workGroups = ((Pipeline) monitorable).getWorkGroups();
+            if (!CollectionUtils.isEmpty(workGroups)) {
+                components = workGroups.stream()
                         .map(PipelineDTO::new)
                         .collect(Collectors.toSet());
             }
@@ -60,7 +60,7 @@ public class PipelineDTO {
         if (monitorable instanceof WorkGroup) {
             var tasks = ((WorkGroup) monitorable).getTasks();
             if (!CollectionUtils.isEmpty(tasks)) {
-                components = ((WorkGroup) monitorable).getTasks().stream()
+                components = tasks.stream()
                         .map(PipelineDTO::new)
                         .collect(Collectors.toSet());
             }
