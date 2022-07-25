@@ -74,8 +74,9 @@ public class Pipeline extends Monitorable {
      * their {@link Notifier}.
      */
     private void propagatePipeline() {
-        this.workGroups.forEach(workGroup -> workGroup.setNotifier(new StateNotifier(this)));
-        this.tasks.forEach(task -> task.setNotifier(new StateNotifier(this)));
+        Notifier notifier = new StateNotifier(this);
+        this.workGroups.forEach(workGroup -> workGroup.setNotifier(notifier));
+        this.tasks.forEach(task -> task.setNotifier(notifier));
     }
 
 }
